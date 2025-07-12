@@ -42,7 +42,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 8080;
 app.use("/api/users", userRoute);
 app.use("/api/product", productRoute);
 app.use("/api/bidding", biddingRoute);
@@ -57,7 +57,16 @@ app.use(errorHandler);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/", (req, res) => {
-    res.send("Home Pages");
+    res.send("Bidify API - Server Running");
+});
+
+// Health check endpoint for App Platform
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        status: "healthy",
+        timestamp: new Date().toISOString(),
+        port: PORT
+    });
 });
 
 mongoose.connect(process.env.DATABASE_CLOUD,{
