@@ -55,11 +55,8 @@ app.use("/api/suggestion", suggestionRoute);
 app.use("/api/telegram/webhook", telegramWebhookRoute);
 app.use("/api/wishlist", wishlistRoute);
 
-// Static files
+// Static files for uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-
-// Serve React app static files
-app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // Health check endpoint for App Platform
 app.get("/health", (req, res) => {
@@ -70,15 +67,12 @@ app.get("/health", (req, res) => {
     });
 });
 
-// Fallback route - serve React app for all non-API routes (including those with query parameters)
-app.get("*", (req, res) => {
-    console.log(`Serving React app for route: ${req.path} with query: ${JSON.stringify(req.query)}`);
-    const indexPath = path.join(__dirname, '../client/dist/index.html');
-    res.sendFile(indexPath, (err) => {
-        if (err) {
-            console.error('Error serving index.html:', err);
-            res.status(500).send('Error serving application');
-        }
+// Root endpoint
+app.get("/", (req, res) => {
+    res.json({
+        message: "Bidify API Server",
+        status: "running",
+        timestamp: new Date().toISOString()
     });
 });
 
