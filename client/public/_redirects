@@ -1,3 +1,0 @@
-# Redirect all non-API routes to index.html for client-side routing
-/api/* https://bidify-app-gyqzi.ondigitalocean.app/api/:splat 200
-/* /index.html 200 
