@@ -62,7 +62,7 @@ app.use(errorHandler);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Serve React app static files
-app.use(express.static(path.join(__dirname, '../client/dist')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Health check endpoint for App Platform
 app.get("/health", (req, res) => {
@@ -75,7 +75,7 @@ app.get("/health", (req, res) => {
 
 // Fallback route - serve React app for all non-API routes
 app.get("*", (req, res) => {
-    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+    res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 mongoose.connect(process.env.DATABASE_CLOUD,{

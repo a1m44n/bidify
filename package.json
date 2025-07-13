@@ -11,7 +11,8 @@
     "dev": "cd backend && npm run dev",
     "install-backend": "cd backend && npm install",
     "install-frontend": "cd client && npm install",
-    "build-frontend": "cd client && npm run build"
+    "build-frontend": "cd client && npm run build",
+    "build-production": "node build-production.js"
   },
   "dependencies": {
     "dotenv": "^16.5.0",
