@@ -43,6 +43,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const PORT = process.env.PORT || 8080;
+
+// API routes
 app.use("/api/users", userRoute);
 app.use("/api/product", productRoute);
 app.use("/api/bidding", biddingRoute);
@@ -53,12 +55,14 @@ app.use("/api/suggestion", suggestionRoute);
 app.use("/api/telegram/webhook", telegramWebhookRoute);
 app.use("/api/wishlist", wishlistRoute);
 
+// Error handler for API routes
 app.use(errorHandler);
+
+// Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-app.get("/", (req, res) => {
-    res.send("Bidify API - Server Running");
-});
+// Serve React app static files
+app.use(express.static(path.join(__dirname, '../client/dist')));
 
 // Health check endpoint for App Platform
 app.get("/health", (req, res) => {
@@ -67,6 +71,11 @@ app.get("/health", (req, res) => {
         timestamp: new Date().toISOString(),
         port: PORT
     });
+});
+
+// Fallback route - serve React app for all non-API routes
+app.get("*", (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });
 
 mongoose.connect(process.env.DATABASE_CLOUD,{
