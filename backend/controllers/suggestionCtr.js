@@ -138,7 +138,8 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
         ...suggestion,
         condition: normalizedCondition.toUpperCase(),
         sources: relevantItems.length,
-        items: items.slice(0, 10) // Return only top 10 items
+        items: items.slice(0, 10), // Return only top 10 items
+        generatedAt: new Date().toISOString() // Add timestamp when suggestion was generated
       }
     });
     

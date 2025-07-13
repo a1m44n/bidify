@@ -491,6 +491,16 @@ export const ProductDetails = () => {
             <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
                 <h4 className="font-semibold text-blue-800 mb-2">Price Suggestion</h4>
                 <p className="text-gray-700 mb-1">Based on similar <span className="font-medium text-blue-800">{product.condition.toUpperCase()}</span> items found online:</p>
+                {suggestedPrice.generatedAt && (
+                    <p className="text-xs text-gray-500 mb-3">Generated on: {new Date(suggestedPrice.generatedAt).toLocaleString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                    })}</p>
+                )}
                 
                 <div className="flex justify-between mb-2">
                     <span className="text-gray-600">Price Range:</span>
@@ -510,7 +520,7 @@ export const ProductDetails = () => {
                 <div className="bg-green-100 p-3 rounded-md mb-4">
                     <div className="flex justify-between font-semibold">
                         <span className="text-green-700">Recommended Bid:</span>
-                        <span className="text-green-700">${suggestedPrice.recommendedBid}</span>
+                        <span className="text-green-700 font-bold text-lg">${suggestedPrice.recommendedBid}</span>
                     </div>
                     {suggestedPrice.reasoning && (
                         <p className="text-sm text-green-700 mt-1 italic">{suggestedPrice.reasoning}</p>
