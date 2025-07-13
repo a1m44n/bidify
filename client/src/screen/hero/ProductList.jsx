@@ -14,7 +14,7 @@ const normalizeCategory = (category) => {
         .trim();
 };
 
-export const ProductList = ({ selectedCategory }) => {
+export const ProductList = ({ selectedCategory, searchQuery }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -52,24 +52,52 @@ export const ProductList = ({ selectedCategory }) => {
     if (loading) return <div>Loading...</div>;
     if (error) return <div>{error}</div>;
 
-    // Filter products based on selected category
-    const filteredProducts = selectedCategory
-        ? products.filter(product => normalizeCategory(product.category) === normalizeCategory(selectedCategory))
-        : products;
+    // Filter products based on selected category and search query
+    let filteredProducts = products;
+    
+    // Apply category filter
+    if (selectedCategory) {
+        filteredProducts = filteredProducts.filter(product => 
+            normalizeCategory(product.category) === normalizeCategory(selectedCategory)
+        );
+    }
+    
+    // Apply search filter
+    if (searchQuery && searchQuery.trim()) {
+        const searchTerm = searchQuery.trim().toLowerCase();
+        filteredProducts = filteredProducts.filter(product => 
+            product.title?.toLowerCase().includes(searchTerm) ||
+            product.description?.toLowerCase().includes(searchTerm)
+        );
+    }
 
     return (
         <>
-            <section className="product-home">
+            <section className="product-home" id="search-results">
                 <Container>
                     <Heading 
-                        title={selectedCategory ? `${selectedCategory} Auctions` : "Live Auctions"} 
-                        subtitle="Explore our latest auctions"
+                        title={
+                            searchQuery ? `Search Results for "${searchQuery}"` :
+                            selectedCategory ? `${selectedCategory} Auctions` : 
+                            "Live Auctions"
+                        } 
+                        subtitle={
+                            searchQuery ? `Found ${filteredProducts.length} results` :
+                            "Explore our latest auctions"
+                        }
                     /> 
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8 my-8">
-                        {filteredProducts.map((item) => (
-                            <ProductCard item={item} key={item._id}/>
-                        ))}
-                    </div>
+                    {filteredProducts.length === 0 && searchQuery ? (
+                        <div className="text-center py-12">
+                            <h3 className="text-xl text-gray-600 mb-4">No products found for "{searchQuery}"</h3>
+                            <p className="text-gray-500">Try a different search term or browse all products</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 my-8">
+                            {filteredProducts.map((item) => (
+                                <ProductCard item={item} key={item._id}/>
+                            ))}
+                        </div>
+                    )}
                 </Container>
             </section>
         </>

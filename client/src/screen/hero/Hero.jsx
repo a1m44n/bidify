@@ -11,7 +11,7 @@ export const User2 = "https://cdn-icons-png.flaticon.com/128/236/236832.png";
 export const User3 = "https://cdn-icons-png.flaticon.com/128/236/236831.png";
 export const User4 = "https://cdn-icons-png.flaticon.com/128/1154/1154448.png";
 
-export const Hero = () => {
+export const Hero = ({ onSearch }) => {
     return (
     <>
         <section className="hero bg-primary py-0 -mt-[1px]">
@@ -21,7 +21,7 @@ export const Hero = () => {
                         Browse buy & sell items 
                     </Title>
                     <br/>
-                    <SearchBox /> 
+                    <SearchBox onSearch={onSearch} /> 
                     <div className="flex items-center gap-8 my-8">
                         <div>
                             <Title level={4} className="text-white">
@@ -81,72 +81,34 @@ export const Hero = () => {
     );
 };
 
-export const SearchBox = () => { 
+export const SearchBox = ({ onSearch }) => { 
     const [searchQuery, setSearchQuery] = useState('');
-    const [suggestions, setSuggestions] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
-    const searchDebounce = useRef(null);
-
-    // Handle search input with suggestions
-    const handleSearchInput = (value) => {
-        setSearchQuery(value);
-
-        // Clear previous timeout
-        if (searchDebounce.current) {
-            clearTimeout(searchDebounce.current);
-        }
-
-        // Debounce suggestions
-        searchDebounce.current = setTimeout(async () => {
-            if (value.length >= 2) {
-                try {
-                    const response = await api.get(`/product/suggestions?query=${value}`);
-                    setSuggestions(response.data);
-                } catch (error) {
-                    console.error('Failed to get suggestions:', error);
-                    setSuggestions([]);
-                }
-            } else {
-                setSuggestions([]);
-            }
-        }, 300);
-    };
 
     // Handle search submission
     const handleSearch = async (e) => {
         e.preventDefault();
         setIsLoading(true);
-        setSuggestions([]); // Clear suggestions when search is submitted
 
         try {
-            // Only send query parameter - no filters
-            const queryParams = new URLSearchParams();
-            if (searchQuery.trim()) {
-                queryParams.append('query', searchQuery.trim());
+            // Call the parent component's search function
+            if (onSearch) {
+                onSearch(searchQuery.trim());
             }
-
-            // Redirect to search results page with query parameters
-            window.location.href = `/search?${queryParams.toString()}`;
+            
+            // Scroll down to results
+            setTimeout(() => {
+                const resultsSection = document.getElementById('search-results');
+                if (resultsSection) {
+                    resultsSection.scrollIntoView({ behavior: 'smooth' });
+                }
+            }, 100);
         } catch (error) {
             console.error('Search failed:', error);
         } finally {
             setIsLoading(false);
         }
     };
-
-    // Close suggestions when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (!event.target.closest('.search-container')) {
-                setSuggestions([]);
-            }
-        };
-
-        document.addEventListener('click', handleClickOutside);
-        return () => {
-            document.removeEventListener('click', handleClickOutside);
-        };
-    }, []);
 
     return (
         <div className="search-container relative">
@@ -159,7 +121,7 @@ export const SearchBox = () => {
                         id="main-search-input"
                         type="text" 
                         value={searchQuery}
-                        onChange={(e) => handleSearchInput(e.target.value)}
+                        onChange={(e) => setSearchQuery(e.target.value)}
                         className="block shadow-md w-full p-6 ps-16 text-sm text-gray-800 rounded-full bg-gray-50 outline-none"
                         placeholder="Search product..."
                     />
@@ -180,23 +142,7 @@ export const SearchBox = () => {
                     </div>
                 </div>
 
-                {/* Suggestions Dropdown */}
-                {suggestions.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 bg-white shadow-lg rounded-lg mt-1 z-50">
-                        {suggestions.map((suggestion, index) => (
-                            <div 
-                                key={index}
-                                className="p-3 hover:bg-gray-100 cursor-pointer text-gray-800"
-                                onClick={() => {
-                                    setSearchQuery(suggestion);
-                                    setSuggestions([]);
-                                }}
-                            >
-                                {suggestion}
-                            </div>
-                        ))}
-                    </div>
-                )}
+
 
                 {/* Filter Options */}
                 {/* {showFilters && (

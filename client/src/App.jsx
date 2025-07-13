@@ -11,7 +11,6 @@ import UserProfile from './pages/profile/UserProfile';
 import PublicProfile from './pages/profile/PublicProfile';
 import TelegramSettings from './pages/account/TelegramSettings';
 import WishlistPage from './pages/wishlist/WishlistPage';
-import SearchResults from './pages/search/SearchResults';
 
 function App() {
   return (
@@ -84,13 +83,7 @@ function App() {
               </Layout>
             } 
           />
-          <Route path="/search"
-            element={
-              <Layout>
-                <SearchResults />
-              </Layout>
-            }
-          />
+
           <Route path="*" element={
             <Layout>
               <div className="text-center py-20">
