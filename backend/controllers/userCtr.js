@@ -216,7 +216,7 @@ const estimateIncome = asyncHandler(async (req, res) => {
 
 // Update user's Telegram settings
 const updateTelegramSettings = asyncHandler(async (req, res) => {
-    const userId = req.user.id;
+    const userId = req.user._id;
     const { telegramChatId, notificationPreferences } = req.body;
     
     try {
@@ -277,7 +277,7 @@ const updateTelegramSettings = asyncHandler(async (req, res) => {
 
 // Get user's Telegram settings
 const getTelegramSettings = asyncHandler(async (req, res) => {
-    const userId = req.user.id;
+    const userId = req.user._id;
     
     try {
         const user = await User.findById(userId);
@@ -307,7 +307,7 @@ const getTelegramSettings = asyncHandler(async (req, res) => {
 
 // Update user's Telegram handle
 const updateTelegramHandle = asyncHandler(async (req, res) => {
-    const userId = req.user.id;
+    const userId = req.user._id;
     const { telegramHandle } = req.body;
     
     try {

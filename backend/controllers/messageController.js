@@ -3,7 +3,7 @@ const Message = require("../models/messageModel");
 
 const getAllMessages = asyncHandler(async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user._id;
 
         // Fetch messages where the user is the recipient
         // Users should only see notifications sent TO them, not ones they triggered for others
@@ -33,7 +33,7 @@ const getAllMessages = asyncHandler(async (req, res) => {
 const markMessageAsRead = asyncHandler(async (req, res) => {
     try {
         const { messageId } = req.params;
-        const userId = req.user.id;
+        const userId = req.user._id;
         
         // Find the message
         const message = await Message.findById(messageId);
@@ -63,7 +63,7 @@ const markMessageAsRead = asyncHandler(async (req, res) => {
 // Get unread messages count
 const getUnreadMessagesCount = asyncHandler(async (req, res) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user._id;
         
         const count = await Message.countDocuments({
             recipient: userId,

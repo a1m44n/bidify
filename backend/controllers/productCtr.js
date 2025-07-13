@@ -109,7 +109,7 @@ const getSearchSuggestions = asyncHandler(async (req, res) => {
 
 const createProduct = asyncHandler (async (req, res) => {
     const { title, description, category, condition, price, height, lengthPic, widthPic, mediumUsed, weight, auctionDuration } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     // Calculate auction end time
     const auctionEndTime = new Date();
@@ -259,7 +259,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
     }
 
     // check created user i.e. if post created id match with deleted product then only proceed to next stage 
-    if(product.user?.toString() !== req.user.id) {
+    if(product.user?.toString() !== req.user._id.toString()) {
         res.status(401);
         throw new Error("User not authorized");
     }
@@ -288,7 +288,7 @@ const updateProduct = asyncHandler (async (req, res) => {
         res.status(404);
         throw new Error("Product not found");
     }
-    if(product.user?.toString() !== req.user.id) {
+    if(product.user?.toString() !== req.user._id.toString()) {
         res.status(401);
         throw new Error("User not authorized");
     }
@@ -543,7 +543,7 @@ const updateSingleAuctionEndTime = asyncHandler(async (req, res) => {
 });
 
 const getUserArchivedProducts = asyncHandler(async (req, res) => {
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const products = await Product.find({ 
         user: userId,

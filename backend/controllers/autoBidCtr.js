@@ -39,7 +39,7 @@ const addToWishlistIfNotExists = async (userId, productId) => {
 const createAutoBid = asyncHandler(async (req, res) => {
     console.log('Starting createAutoBid with body:', req.body);
     const { productId, maxBidAmount } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     if (!productId || !maxBidAmount) {
         console.log('Missing required fields:', { productId, maxBidAmount });
@@ -180,7 +180,7 @@ const createAutoBid = asyncHandler(async (req, res) => {
 // Get auto-bid for a specific product and user
 const getAutoBid = asyncHandler(async (req, res) => {
     const { productId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const autoBid = await AutoBid.findOne({
         user: userId,
@@ -196,7 +196,7 @@ const getAutoBid = asyncHandler(async (req, res) => {
 
 // Get all auto-bids for a user
 const getUserAutoBids = asyncHandler(async (req, res) => {
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const autoBids = await AutoBid.find({
         user: userId,
@@ -209,7 +209,7 @@ const getUserAutoBids = asyncHandler(async (req, res) => {
 // Delete/deactivate an auto-bid
 const deleteAutoBid = asyncHandler(async (req, res) => {
     const { productId } = req.params;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const autoBid = await AutoBid.findOne({
         user: userId,

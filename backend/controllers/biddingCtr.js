@@ -49,7 +49,7 @@ const getBiddingHistory = asyncHandler(async (req, res) => {
 
 const placeBid = asyncHandler(async (req, res) => {
     const { productId, price } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const product = await Product.findById(productId).populate("user", "username");
     
@@ -153,7 +153,7 @@ const placeBid = asyncHandler(async (req, res) => {
 
 const sellProduct = asyncHandler(async (req, res) => {
     const { productId } = req.body;
-    const userId = req.user.id;
+    const userId = req.user._id;
 
     const product = await Product.findById(productId);
     if (!product) {
