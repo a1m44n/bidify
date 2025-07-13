@@ -1,5 +1,6 @@
 const Wishlist = require('../models/wishlistModel');
 const Product = require('../models/productModels');
+const BiddingProduct = require('../models/biddingModel');
 const asyncHandler = require('express-async-handler');
 
 // Add product to wishlist
@@ -43,6 +44,17 @@ const addToWishlist = asyncHandler(async (req, res) => {
 const removeFromWishlist = asyncHandler(async (req, res) => {
   const { productId } = req.params;
   const userId = req.user._id;
+
+  // Check if user has placed any bids on this product
+  const userBid = await BiddingProduct.findOne({ 
+    user: userId, 
+    product: productId 
+  });
+
+  if (userBid) {
+    res.status(400);
+    throw new Error('Cannot remove product from wishlist - you have placed a bid on this item');
+  }
 
   const wishlistItem = await Wishlist.findOneAndDelete({ userId, productId });
 

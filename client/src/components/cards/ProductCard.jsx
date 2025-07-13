@@ -80,6 +80,13 @@ export const ProductCard = ({ item, isWishlisted: initialIsWishlisted, onRemoveF
             }
         } catch (error) {
             console.error('Error updating wishlist:', error);
+            
+            // Show user-friendly error message for bid restriction
+            if (error.response?.status === 400 && error.response?.data?.message?.includes('placed a bid')) {
+                alert('Cannot remove from wishlist - you have placed a bid on this item');
+            } else {
+                alert('Error updating wishlist. Please try again.');
+            }
         } finally {
             setIsLoading(false);
         }
