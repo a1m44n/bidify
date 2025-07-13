@@ -85,13 +85,6 @@ export const SearchBox = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [suggestions, setSuggestions] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [filters, setFilters] = useState({
-        category: '',
-        minPrice: '',
-        maxPrice: '',
-        condition: ''
-    });
-    const [showFilters, setShowFilters] = useState(false);
     const searchDebounce = useRef(null);
 
     // Handle search input with suggestions
@@ -126,10 +119,11 @@ export const SearchBox = () => {
         setSuggestions([]); // Clear suggestions when search is submitted
 
         try {
-            const queryParams = new URLSearchParams({
-                query: searchQuery,
-                ...filters
-            });
+            // Only send query parameter - no filters
+            const queryParams = new URLSearchParams();
+            if (searchQuery.trim()) {
+                queryParams.append('query', searchQuery.trim());
+            }
 
             // Redirect to search results page with query parameters
             window.location.href = `/search?${queryParams.toString()}`;

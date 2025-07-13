@@ -21,10 +21,10 @@ const getTimeLeft = (endTime) => {
     return `${minutes}m`;
 };
 
-// Search products
+// Search products - simplified version with only query parameter
 const searchProducts = asyncHandler(async (req, res) => {
     try {
-        const { query, category, minPrice, maxPrice, condition } = req.query;
+        const { query } = req.query;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 20;
         const skip = (page - 1) * limit;
@@ -36,22 +36,13 @@ const searchProducts = asyncHandler(async (req, res) => {
             auctionEndTime: { $gt: new Date() }
         };
 
-        // Add filters if provided
-        if (category && category !== 'All') baseCriteria.category = category;
-        if (condition) baseCriteria.condition = condition;
-        if (minPrice || maxPrice) {
-            baseCriteria.price = {};
-            if (minPrice) baseCriteria.price.$gte = parseFloat(minPrice);
-            if (maxPrice) baseCriteria.price.$lte = parseFloat(maxPrice);
-        }
-
-        // Build search criteria
+        // Build search criteria - only search in title and description
         let searchCriteria = { ...baseCriteria };
         
-        if (query) {
+        if (query && query.trim()) {
             searchCriteria.$or = [
-                { title: { $regex: query, $options: 'i' } },
-                { description: { $regex: query, $options: 'i' } }
+                { title: { $regex: query.trim(), $options: 'i' } },
+                { description: { $regex: query.trim(), $options: 'i' } }
             ];
         }
 
@@ -79,15 +70,18 @@ const searchProducts = asyncHandler(async (req, res) => {
         }));
 
         res.json({
+            success: true,
             products: productsWithBids,
             total,
             page,
-            totalPages: Math.ceil(total / limit)
+            totalPages: Math.ceil(total / limit),
+            query: query || ''
         });
 
     } catch (error) {
         console.error('Search error:', error);
         res.status(500).json({ 
+            success: false,
             message: "Error performing search",
             error: error.message
         });
