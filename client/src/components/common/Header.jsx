@@ -91,7 +91,7 @@ export const Header = () => {
             const newEndTime = new Date(Date.now() + 20000); // current time + 20 seconds
             
             await axios.post(
-                `/api/product/update-end-time/${productId}`,
+                `${API_URL}/api/product/update-end-time/${productId}`,
                 { auctionEndTime: newEndTime.toISOString() },
                 { withCredentials: true }
             );
