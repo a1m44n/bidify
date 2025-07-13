@@ -890,7 +890,16 @@ export const ProductDetails = () => {
                         </Caption>
                         <br />
                         <Caption>
-                            Listed By: @{product.user?.username || 'Unknown'}
+                            Listed By: {product.user && product.user._id && product.user.username ? (
+                                <a
+                                    href={`/profile/${product.user._id}`}
+                                    className="text-primary hover:underline"
+                                >
+                                    @{product.user.username}
+                                </a>
+                            ) : (
+                                <>@{product.user?.username || 'Unknown'}</>
+                            )}
                         </Caption>
                         <br />
                         <Caption>
