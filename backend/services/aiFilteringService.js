@@ -32,14 +32,13 @@ function isTitleTooGeneric(title) {
   // Common generic terms that need more specificity
   const genericTerms = [
     'table', 'chair', 'shoe', 'shirt', 'car', 'phone', 'laptop', 'watch',
-    'bag', 'book', 'toy', 'game', 'part', 'kit', 'set', 'tool', 'device',
-    'case', 'cover', 'accessory', 'item', 'product'
+    'bag', 'book', 'toy', 'game', 'part', 'kit', 'set', 'tool', 'device'
   ];
   
   // If title is just generic terms without descriptors, it's too generic
   const hasOnlyGenericTerms = words.every(word => 
     genericTerms.includes(word) || 
-    ['the', 'a', 'an', 'and', 'or', 'for', 'with', 'of', 'in'].includes(word)
+    ['the', 'a', 'an', 'and', 'or', 'for', 'with'].includes(word)
   );
   
   return hasOnlyGenericTerms;
@@ -286,8 +285,8 @@ async function classifyItemsWithAI(searchTerm, scrapedItems) {
       aiAnalysis: {
         totalItemsAnalyzed: allClassifications.length,
         relevantFound: relevantItems.length,
-        averageConfidence: relevantItems.length > 0 ? 
-          relevantItems.reduce((sum, item) => sum + item.aiClassification.confidence, 0) / relevantItems.length : 0,
+        averageConfidence: relevantItems.reduce((sum, item) => 
+          sum + item.aiClassification.confidence, 0) / relevantItems.length,
         diversityAnalysis
       }
     };

@@ -60,7 +60,7 @@ const getDebugScrapedData = asyncHandler(async (req, res) => {
  * - productTitle: string (required)
  * - category: string (optional)
  * - condition: string (required) - Valid values: "new", "used" ONLY
- * - useAI: string (optional) - "true" to use AI filtering, defaults to "true"
+ * - useAI: string (optional) - "true" to use AI filtering, "false" for traditional
  */
 const getPriceSuggestion = asyncHandler(async (req, res) => {
   const { productTitle, category, condition, useAI } = req.query;
@@ -83,91 +83,69 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
     throw new Error(`Invalid condition. Must be either 'new' or 'used'`);
   }
 
-  // Parse AI preference (default to true)
+  // Parse useAI parameter (default to true)
   const shouldUseAI = useAI !== 'false';
   
   try {
-    // Step 1: Scrape items from eBay only with condition filtering
+    console.log(`🔍 Getting price suggestion for "${productTitle}" (condition: ${normalizedCondition.toUpperCase()}, AI: ${shouldUseAI})`);
+    
+    // Step 1: Scrape items from eBay with condition filtering
     const ebayResults = await scrapingService.scrapeEbay(productTitle, normalizedCondition);
     
-    // Use only eBay results
-    const allItems = ebayResults;
-    
-    if (allItems.length === 0) {
+    if (ebayResults.length === 0) {
       return res.status(200).json({
         success: false,
         message: `No ${normalizedCondition.toUpperCase()} items found to generate a price suggestion`
       });
     }
-    
-    let relevantItems = [];
-    let method = "basic";
-    let aiAnalysis = null;
-    let aiError = null;
 
-    // Step 2: Filter for relevance
+    // Step 2: Filter for relevance using AI or traditional method
+    let relevanceResult;
+    
     if (shouldUseAI) {
-      try {
-        console.log(`🤖 Using AI filtering for "${productTitle}"`);
-        const aiResult = await suggestionService.checkRelevanceWithAI(productTitle, allItems);
-        
-        if (aiResult.success) {
-          relevantItems = aiResult.relevantItems;
-          method = "ai";
-          aiAnalysis = aiResult.aiAnalysis;
-          console.log(`✅ AI: Found ${relevantItems.length} relevant items`);
-        } else if (aiResult.isGeneric) {
-          // Handle generic item error
-          return res.status(400).json({
-            success: false,
-            isGeneric: true,
-            message: aiResult.message,
-            step: aiResult.step
-          });
-        } else if (aiResult.fallbackRequired) {
-          // AI failed, fall back to basic method
-          console.log(`⚠️ AI failed, falling back to basic filtering: ${aiResult.error}`);
-          aiError = aiResult.error;
-          relevantItems = allItems.filter(item => 
-            suggestionService.checkRelevance(
-              productTitle, 
-              item.title, 
-              item.description || ''
-            )
-          );
-          method = "basic_fallback";
-        }
-      } catch (error) {
-        console.error('❌ AI filtering failed:', error);
-        aiError = error.message;
-        // Fall back to basic filtering
-        relevantItems = allItems.filter(item => 
-          suggestionService.checkRelevance(
-            productTitle, 
-            item.title, 
-            item.description || ''
-          )
-        );
-        method = "basic_fallback";
+      console.log('🤖 Using AI-powered relevance filtering');
+      relevanceResult = await suggestionService.checkRelevanceWithAI(productTitle, ebayResults);
+      
+      // Handle generic item detection
+      if (!relevanceResult.success && relevanceResult.isGeneric) {
+        return res.status(200).json({
+          success: false,
+          isGeneric: true,
+          message: relevanceResult.reason,
+          step: relevanceResult.step,
+          totalItemsScraped: ebayResults.length
+        });
       }
     } else {
-      // Use basic string matching when AI is disabled
-      console.log(`🔍 Using basic filtering for "${productTitle}"`);
-      relevantItems = allItems.filter(item => 
+      console.log('📝 Using traditional string-based relevance filtering');
+      const relevantItems = ebayResults.filter(item => 
         suggestionService.checkRelevance(
           productTitle, 
           item.title, 
           item.description || ''
         )
       );
+      
+      relevanceResult = {
+        success: true,
+        relevantItems,
+        fallbackUsed: false,
+        aiAnalysis: {
+          method: 'traditional',
+          totalItemsAnalyzed: ebayResults.length,
+          relevantFound: relevantItems.length
+        }
+      };
     }
+
+    const { relevantItems, aiAnalysis, fallbackUsed } = relevanceResult;
     
-    if (relevantItems.length === 0) {
+    if (!relevantItems || relevantItems.length === 0) {
       return res.status(200).json({
         success: false,
         message: `No relevant ${normalizedCondition.toUpperCase()} items found to generate a price suggestion`,
-        method,
-        aiError
+        aiAnalysis: aiAnalysis,
+        fallbackUsed: fallbackUsed
       });
     }
     
@@ -179,9 +157,7 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       productTitle,
       category,
       prices,
-      normalizedCondition,
-      method,
-      aiAnalysis
+      normalizedCondition
     );
     
     // Include a selection of the relevant items in the response
@@ -191,10 +167,9 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       source: item.source,
       condition: item.condition,
       url: item.url,
-      // Include AI classification info if available
       ...(item.aiClassification && { 
         aiConfidence: item.aiClassification.confidence,
-        aiCategory: item.aiClassification.category 
+        aiCategory: item.aiClassification.category
       })
     }));
     
@@ -205,19 +180,17 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
         condition: normalizedCondition.toUpperCase(),
         sources: relevantItems.length,
         items: items.slice(0, 10), // Return only top 10 items
-        generatedAt: new Date().toISOString(), // Add timestamp when suggestion was generated
-        method, // Include the method used
-        ...(aiError && { aiError }), // Include AI error if there was one
-        ...(method === 'ai' && aiAnalysis && { aiInsights: {
-          totalAnalyzed: aiAnalysis.totalItemsAnalyzed,
-          relevantFound: aiAnalysis.relevantFound,
-          averageConfidence: Math.round(aiAnalysis.averageConfidence * 100)
-        }})
+        generatedAt: new Date().toISOString(),
+        aiAnalysis: {
+          ...aiAnalysis,
+          methodUsed: shouldUseAI ? (fallbackUsed ? 'ai_with_fallback' : 'ai') : 'traditional',
+          totalItemsScraped: ebayResults.length
+        }
       }
     });
     
   } catch (error) {
-    console.error("Error generating price suggestion:", error);
+    console.error("❌ Error generating price suggestion:", error);
     res.status(500).json({ 
       success: false, 
       message: "Failed to generate price suggestion",

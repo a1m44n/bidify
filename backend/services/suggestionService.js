@@ -1,6 +1,6 @@
 const axios = require('axios');
 const OpenAI = require('openai');
-const { classifyItemsWithAI } = require('./aiFilteringService');
+const aiFilteringService = require('./aiFilteringService');
 
 // Configure OpenAI with new syntax
 const openai = new OpenAI({
@@ -73,47 +73,61 @@ function checkRelevance(originalItem, scrapedItemTitle, scrapedItemDescription =
 }
 
 /**
- * Filter items using AI relevance checking
+ * Enhanced relevance checking using AI
  * @param {string} searchTerm - Original search term
- * @param {Array} scrapedItems - Array of scraped items
- * @returns {Promise<Object>} - Filtered items or error info
+ * @param {Array} scrapedItems - Array of scraped items to filter
+ * @returns {Promise<Object>} - Object containing relevant items or error information
  */
 async function checkRelevanceWithAI(searchTerm, scrapedItems) {
   try {
-    console.log(`🔍 AI: Starting relevance check for "${searchTerm}" with ${scrapedItems.length} items`);
+    console.log(`🤖 Starting AI relevance check for "${searchTerm}" with ${scrapedItems.length} items`);
     
-    // Use AI service to classify items
-    const aiResult = await classifyItemsWithAI(searchTerm, scrapedItems);
+    // Use AI filtering service to classify items
+    const aiResult = await aiFilteringService.classifyItemsWithAI(searchTerm, scrapedItems);
     
     if (!aiResult.success) {
-      // Return generic item error or other AI issues
+      // Return error information for generic items
       return {
         success: false,
         isGeneric: aiResult.isGeneric,
-        message: aiResult.reason,
-        step: aiResult.step
+        reason: aiResult.reason,
+        step: aiResult.step,
+        fallbackUsed: false
       };
     }
     
+    // Return successful AI filtering results
     return {
       success: true,
       relevantItems: aiResult.relevantItems,
-      aiAnalysis: aiResult.aiAnalysis
+      aiAnalysis: aiResult.aiAnalysis,
+      fallbackUsed: false
     };
     
   } catch (error) {
-    console.error('❌ AI: Relevance check failed:', error);
-    // Fall back to traditional method on AI failure
+    console.error('❌ AI relevance check failed, falling back to traditional method:', error);
+    
+    // Fallback to traditional string matching
+    const relevantItems = scrapedItems.filter(item => 
+      checkRelevance(searchTerm, item.title, item.description || '')
+    );
+    
     return {
-      success: false,
-      fallbackRequired: true,
-      error: error.message
+      success: true,
+      relevantItems,
+      aiAnalysis: {
+        error: error.message,
+        fallbackUsed: true,
+        totalItemsAnalyzed: scrapedItems.length,
+        relevantFound: relevantItems.length
+      },
+      fallbackUsed: true
     };
   }
 }
 
 // Calculate recommended bid based on cleaned data
-function calculateRecommendedBid(productTitle, category, prices, itemCondition = "New", method = "basic", aiAnalysis = null) {
+function calculateRecommendedBid(productTitle, category, prices, itemCondition = "New") {
   // Clean outliers
   const cleanedPrices = cleanPriceOutliers(prices);
   
@@ -131,24 +145,14 @@ function calculateRecommendedBid(productTitle, category, prices, itemCondition =
   // Calculate recommended bid (90% of median price)
   const recommendedBid = parseFloat((median * 0.9).toFixed(2));
   
-  // Create reasoning based on method used
-  let reasoning = `Based on analysis of similar items, with prices ranging from $${min.toFixed(2)} to $${max.toFixed(2)}.`;
-  
-  if (method === "ai" && aiAnalysis) {
-    const confidence = Math.round(aiAnalysis.averageConfidence * 100);
-    reasoning = `AI-powered analysis of ${aiAnalysis.totalItemsAnalyzed} items (${confidence}% confidence), filtered to ${aiAnalysis.relevantFound} relevant matches.`;
-  }
-  
   return {
     recommendedBid,
-    reasoning,
+    reasoning: `Based on analysis of similar items, with prices ranging from $${min.toFixed(2)} to $${max.toFixed(2)}.`,
     priceRange: { min, max },
     averagePrice: parseFloat(avg.toFixed(2)),
     medianPrice: parseFloat(median.toFixed(2)),
     cleanedPrices,
-    originalPrices: prices,
-    method,
-    aiAnalysis
+    originalPrices: prices
   };
 }
 
