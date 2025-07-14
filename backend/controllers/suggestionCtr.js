@@ -60,9 +60,10 @@ const getDebugScrapedData = asyncHandler(async (req, res) => {
  * - productTitle: string (required)
  * - category: string (optional)
  * - condition: string (required) - Valid values: "new", "used" ONLY
+ * - useAI: string (optional) - "true" to use AI filtering, defaults to "true"
  */
 const getPriceSuggestion = asyncHandler(async (req, res) => {
-  const { productTitle, category, condition } = req.query;
+  const { productTitle, category, condition, useAI } = req.query;
   
   if (!productTitle) {
     res.status(400);
@@ -81,6 +82,9 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error(`Invalid condition. Must be either 'new' or 'used'`);
   }
+
+  // Parse AI preference (default to true)
+  const shouldUseAI = useAI !== 'false';
   
   try {
     // Step 1: Scrape items from eBay only with condition filtering
@@ -96,19 +100,74 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       });
     }
     
-    // Step 2: Filter for relevance using string matching
-    const relevantItems = allItems.filter(item => 
-      suggestionService.checkRelevance(
-        productTitle, 
-        item.title, 
-        item.description || ''
-      )
-    );
+    let relevantItems = [];
+    let method = "basic";
+    let aiAnalysis = null;
+    let aiError = null;
+
+    // Step 2: Filter for relevance
+    if (shouldUseAI) {
+      try {
+        console.log(`🤖 Using AI filtering for "${productTitle}"`);
+        const aiResult = await suggestionService.checkRelevanceWithAI(productTitle, allItems);
+        
+        if (aiResult.success) {
+          relevantItems = aiResult.relevantItems;
+          method = "ai";
+          aiAnalysis = aiResult.aiAnalysis;
+          console.log(`✅ AI: Found ${relevantItems.length} relevant items`);
+        } else if (aiResult.isGeneric) {
+          // Handle generic item error
+          return res.status(400).json({
+            success: false,
+            isGeneric: true,
+            message: aiResult.message,
+            step: aiResult.step
+          });
+        } else if (aiResult.fallbackRequired) {
+          // AI failed, fall back to basic method
+          console.log(`⚠️ AI failed, falling back to basic filtering: ${aiResult.error}`);
+          aiError = aiResult.error;
+          relevantItems = allItems.filter(item => 
+            suggestionService.checkRelevance(
+              productTitle, 
+              item.title, 
+              item.description || ''
+            )
+          );
+          method = "basic_fallback";
+        }
+      } catch (error) {
+        console.error('❌ AI filtering failed:', error);
+        aiError = error.message;
+        // Fall back to basic filtering
+        relevantItems = allItems.filter(item => 
+          suggestionService.checkRelevance(
+            productTitle, 
+            item.title, 
+            item.description || ''
+          )
+        );
+        method = "basic_fallback";
+      }
+    } else {
+      // Use basic string matching when AI is disabled
+      console.log(`🔍 Using basic filtering for "${productTitle}"`);
+      relevantItems = allItems.filter(item => 
+        suggestionService.checkRelevance(
+          productTitle, 
+          item.title, 
+          item.description || ''
+        )
+      );
+    }
     
     if (relevantItems.length === 0) {
       return res.status(200).json({
         success: false,
-        message: `No relevant ${normalizedCondition.toUpperCase()} items found to generate a price suggestion`
+        message: `No relevant ${normalizedCondition.toUpperCase()} items found to generate a price suggestion`,
+        method,
+        aiError
       });
     }
     
@@ -120,7 +179,9 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       productTitle,
       category,
       prices,
-      normalizedCondition
+      normalizedCondition,
+      method,
+      aiAnalysis
     );
     
     // Include a selection of the relevant items in the response
@@ -129,7 +190,12 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       price: item.price,
       source: item.source,
       condition: item.condition,
-      url: item.url
+      url: item.url,
+      // Include AI classification info if available
+      ...(item.aiClassification && { 
+        aiConfidence: item.aiClassification.confidence,
+        aiCategory: item.aiClassification.category 
+      })
     }));
     
     res.status(200).json({
@@ -139,7 +205,14 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
         condition: normalizedCondition.toUpperCase(),
         sources: relevantItems.length,
         items: items.slice(0, 10), // Return only top 10 items
-        generatedAt: new Date().toISOString() // Add timestamp when suggestion was generated
+        generatedAt: new Date().toISOString(), // Add timestamp when suggestion was generated
+        method, // Include the method used
+        ...(aiError && { aiError }), // Include AI error if there was one
+        ...(method === 'ai' && aiAnalysis && { aiInsights: {
+          totalAnalyzed: aiAnalysis.totalItemsAnalyzed,
+          relevantFound: aiAnalysis.relevantFound,
+          averageConfidence: Math.round(aiAnalysis.averageConfidence * 100)
+        }})
       }
     });
     

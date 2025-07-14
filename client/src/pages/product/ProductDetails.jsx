@@ -82,6 +82,7 @@ export const ProductDetails = () => {
     const [suggestedPrice, setSuggestedPrice] = useState(null);
     const [loadingSuggestion, setLoadingSuggestion] = useState(false);
     const [showSuggestion, setShowSuggestion] = useState(false);
+    const [useAI, setUseAI] = useState(true); // AI toggle state (default: true)
     // Auto-bidding state
     const [autoBidEnabled, setAutoBidEnabled] = useState(false);
     const [showAutoBidForm, setShowAutoBidForm] = useState(false);
@@ -447,17 +448,35 @@ export const ProductDetails = () => {
                 params: {
                     productTitle: product.title,
                     category: product.category,
-                    condition: product.condition.toLowerCase() // Add condition parameter
+                    condition: product.condition.toLowerCase(),
+                    useAI: useAI.toString() // Add AI preference parameter
                 }
             });
             
             if (response.data.success) {
                 setSuggestedPrice(response.data.suggestion);
             } else {
-                console.error("Failed to get price suggestion:", response.data.message);
+                // Handle generic item error
+                if (response.data.isGeneric) {
+                    setSuggestedPrice({
+                        error: true,
+                        isGeneric: true,
+                        message: response.data.message
+                    });
+                } else {
+                    console.error("Failed to get price suggestion:", response.data.message);
+                    setSuggestedPrice({
+                        error: true,
+                        message: response.data.message
+                    });
+                }
             }
         } catch (err) {
             console.error("Error fetching price suggestion:", err);
+            setSuggestedPrice({
+                error: true,
+                message: err.response?.data?.message || "Failed to get price suggestion"
+            });
         } finally {
             setLoadingSuggestion(false);
         }
@@ -467,29 +486,105 @@ export const ProductDetails = () => {
     const renderPriceSuggestion = () => {
         if (!showSuggestion) {
             return (
-                <button
-                    onClick={() => {
-                        setShowSuggestion(true);
-                        fetchPriceSuggestion();
-                    }}
-                    className="mt-4 text-blue-600 hover:text-blue-800 flex items-center gap-2"
-                >
-                    <span>💡</span> Get suggested price
-                </button>
+                <div className="mt-4">
+                    <div className="flex items-center justify-between mb-3">
+                        <button
+                            onClick={() => {
+                                setShowSuggestion(true);
+                                fetchPriceSuggestion();
+                            }}
+                            className="text-blue-600 hover:text-blue-800 flex items-center gap-2 font-medium"
+                        >
+                            <span>💡</span> Get suggested price
+                        </button>
+                        
+                        {/* AI Toggle */}
+                        <div className="flex items-center gap-2">
+                            <span className={`text-sm ${useAI ? 'text-blue-600' : 'text-gray-500'}`}>
+                                {useAI ? '🤖 AI-Powered' : '🔍 Basic'}
+                            </span>
+                            <button
+                                onClick={() => setUseAI(!useAI)}
+                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                    useAI ? 'bg-blue-600' : 'bg-gray-200'
+                                }`}
+                            >
+                                <span
+                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                        useAI ? 'translate-x-6' : 'translate-x-1'
+                                    }`}
+                                />
+                            </button>
+                        </div>
+                    </div>
+                </div>
             );
         }
         
         if (loadingSuggestion) {
-            return <p className="mt-4 text-gray-600">Loading price suggestions...</p>;
+            return (
+                <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
+                    <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-blue-600"></div>
+                        <span className="text-blue-800">
+                            {useAI ? '🤖 AI analyzing market data...' : '🔍 Analyzing prices...'}
+                        </span>
+                    </div>
+                </div>
+            );
         }
         
-        if (!suggestedPrice) {
-            return <p className="mt-4 text-gray-600">Could not find similar items to suggest a price.</p>;
+        if (!suggestedPrice || suggestedPrice.error) {
+            if (suggestedPrice?.isGeneric) {
+                return (
+                    <div className="mt-4 p-4 bg-orange-50 rounded-md border border-orange-200">
+                        <div className="flex items-start gap-2">
+                            <span className="text-orange-600 mt-1">⚠️</span>
+                            <div>
+                                <h4 className="font-semibold text-orange-800 mb-1">Product Too Generic</h4>
+                                <p className="text-orange-700 text-sm">{suggestedPrice.message}</p>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+            
+            const errorMessage = suggestedPrice?.message || "Could not find similar items to suggest a price.";
+            return (
+                <div className="mt-4 p-4 bg-red-50 rounded-md border border-red-200">
+                    <div className="flex items-start gap-2">
+                        <span className="text-red-600 mt-1">❌</span>
+                        <div>
+                            <h4 className="font-semibold text-red-800 mb-1">Error</h4>
+                            <p className="text-red-700 text-sm">{errorMessage}</p>
+                        </div>
+                    </div>
+                </div>
+            );
         }
         
         return (
             <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
-                <h4 className="font-semibold text-blue-800 mb-2">Price Suggestion</h4>
+                <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-blue-800">Price Suggestion</h4>
+                    <div className="flex items-center gap-2">
+                        {suggestedPrice.method === 'ai' && (
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                🤖 AI-Powered
+                            </span>
+                        )}
+                        {suggestedPrice.method === 'basic' && (
+                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded-full">
+                                🔍 Basic
+                            </span>
+                        )}
+                        {suggestedPrice.method === 'basic_fallback' && (
+                            <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded-full">
+                                ⚠️ AI Fallback
+                            </span>
+                        )}
+                    </div>
+                </div>
                 <p className="text-gray-700 mb-1">Based on similar <span className="font-medium text-blue-800">{product.condition.toUpperCase()}</span> items found online:</p>
                 {suggestedPrice.generatedAt && (
                     <p className="text-xs text-gray-500 mb-3">Generated on: {new Date(suggestedPrice.generatedAt).toLocaleString('en-US', {
@@ -533,6 +628,58 @@ export const ProductDetails = () => {
                     </button>
                 </div>
 
+                {/* AI Insights */}
+                {suggestedPrice.aiInsights && (
+                    <div className="mt-4 p-3 bg-indigo-50 rounded-md border border-indigo-200">
+                        <h5 className="font-semibold text-indigo-800 mb-2 flex items-center gap-1">
+                            🤖 AI Analysis
+                        </h5>
+                        <div className="text-sm text-indigo-700 space-y-1">
+                            <p>• Analyzed {suggestedPrice.aiInsights.totalAnalyzed} marketplace items</p>
+                            <p>• Found {suggestedPrice.aiInsights.relevantFound} highly relevant matches</p>
+                            <p>• Average AI confidence: {suggestedPrice.aiInsights.averageConfidence}%</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* AI Error/Fallback Notice */}
+                {suggestedPrice.aiError && (
+                    <div className="mt-4 p-3 bg-orange-50 rounded-md border border-orange-200">
+                        <h5 className="font-semibold text-orange-800 mb-1 flex items-center gap-1">
+                            ⚠️ AI Notice
+                        </h5>
+                        <p className="text-sm text-orange-700">
+                            AI analysis failed, used basic filtering instead. Error: {suggestedPrice.aiError}
+                        </p>
+                    </div>
+                )}
+
+                {/* AI Insights */}
+                {suggestedPrice.aiInsights && (
+                    <div className="mt-4 p-3 bg-indigo-50 rounded-md border border-indigo-200">
+                        <h5 className="font-semibold text-indigo-800 mb-2 flex items-center gap-1">
+                            🤖 AI Analysis
+                        </h5>
+                        <div className="text-sm text-indigo-700 space-y-1">
+                            <p>• Analyzed {suggestedPrice.aiInsights.totalAnalyzed} marketplace items</p>
+                            <p>• Found {suggestedPrice.aiInsights.relevantFound} highly relevant matches</p>
+                            <p>• Average AI confidence: {suggestedPrice.aiInsights.averageConfidence}%</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* AI Error/Fallback Notice */}
+                {suggestedPrice.aiError && (
+                    <div className="mt-4 p-3 bg-orange-50 rounded-md border border-orange-200">
+                        <h5 className="font-semibold text-orange-800 mb-1 flex items-center gap-1">
+                            ⚠️ AI Notice
+                        </h5>
+                        <p className="text-sm text-orange-700">
+                            AI analysis failed, used basic filtering instead. Error: {suggestedPrice.aiError}
+                        </p>
+                    </div>
+                )}
+
                 {/* Similar Items Section */}
                 <div className="mt-4">
                     <h5 className="font-semibold text-blue-800 mb-2">Similar Items Found Online</h5>
@@ -544,6 +691,11 @@ export const ProductDetails = () => {
                                     {item.condition && (
                                         <span className={`text-xs px-1 rounded ${item.condition === 'NEW' ? 'bg-green-200 text-green-800' : 'bg-orange-200 text-orange-800'}`}>
                                             {item.condition}
+                                        </span>
+                                    )}
+                                    {item.aiConfidence && (
+                                        <span className="text-xs bg-blue-200 text-blue-800 px-1 rounded">
+                                            AI: {Math.round(item.aiConfidence * 100)}%
                                         </span>
                                     )}
                                     <a 

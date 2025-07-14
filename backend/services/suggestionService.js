@@ -1,5 +1,6 @@
 const axios = require('axios');
 const OpenAI = require('openai');
+const { classifyItemsWithAI } = require('./aiFilteringService');
 
 // Configure OpenAI with new syntax
 const openai = new OpenAI({
@@ -71,8 +72,48 @@ function checkRelevance(originalItem, scrapedItemTitle, scrapedItemDescription =
   return matchCount >= Math.ceil(searchTerms.length * 0.5);
 }
 
+/**
+ * Filter items using AI relevance checking
+ * @param {string} searchTerm - Original search term
+ * @param {Array} scrapedItems - Array of scraped items
+ * @returns {Promise<Object>} - Filtered items or error info
+ */
+async function checkRelevanceWithAI(searchTerm, scrapedItems) {
+  try {
+    console.log(`🔍 AI: Starting relevance check for "${searchTerm}" with ${scrapedItems.length} items`);
+    
+    // Use AI service to classify items
+    const aiResult = await classifyItemsWithAI(searchTerm, scrapedItems);
+    
+    if (!aiResult.success) {
+      // Return generic item error or other AI issues
+      return {
+        success: false,
+        isGeneric: aiResult.isGeneric,
+        message: aiResult.reason,
+        step: aiResult.step
+      };
+    }
+    
+    return {
+      success: true,
+      relevantItems: aiResult.relevantItems,
+      aiAnalysis: aiResult.aiAnalysis
+    };
+    
+  } catch (error) {
+    console.error('❌ AI: Relevance check failed:', error);
+    // Fall back to traditional method on AI failure
+    return {
+      success: false,
+      fallbackRequired: true,
+      error: error.message
+    };
+  }
+}
+
 // Calculate recommended bid based on cleaned data
-function calculateRecommendedBid(productTitle, category, prices, itemCondition = "New") {
+function calculateRecommendedBid(productTitle, category, prices, itemCondition = "New", method = "basic", aiAnalysis = null) {
   // Clean outliers
   const cleanedPrices = cleanPriceOutliers(prices);
   
@@ -90,20 +131,31 @@ function calculateRecommendedBid(productTitle, category, prices, itemCondition =
   // Calculate recommended bid (90% of median price)
   const recommendedBid = parseFloat((median * 0.9).toFixed(2));
   
+  // Create reasoning based on method used
+  let reasoning = `Based on analysis of similar items, with prices ranging from $${min.toFixed(2)} to $${max.toFixed(2)}.`;
+  
+  if (method === "ai" && aiAnalysis) {
+    const confidence = Math.round(aiAnalysis.averageConfidence * 100);
+    reasoning = `AI-powered analysis of ${aiAnalysis.totalItemsAnalyzed} items (${confidence}% confidence), filtered to ${aiAnalysis.relevantFound} relevant matches.`;
+  }
+  
   return {
     recommendedBid,
-    reasoning: `Based on analysis of similar items, with prices ranging from $${min.toFixed(2)} to $${max.toFixed(2)}.`,
+    reasoning,
     priceRange: { min, max },
     averagePrice: parseFloat(avg.toFixed(2)),
     medianPrice: parseFloat(median.toFixed(2)),
     cleanedPrices,
-    originalPrices: prices
+    originalPrices: prices,
+    method,
+    aiAnalysis
   };
 }
 
 module.exports = {
   generateExpandedKeywords,
   checkRelevance,
+  checkRelevanceWithAI,
   cleanPriceOutliers,
   calculateRecommendedBid
 }; 
