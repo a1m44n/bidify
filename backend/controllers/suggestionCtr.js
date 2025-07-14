@@ -106,8 +106,35 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       console.log('🤖 Using AI-powered relevance filtering');
       relevanceResult = await suggestionService.checkRelevanceWithAI(productTitle, ebayResults);
       
-      // Handle generic item detection
+      // Handle generic item detection - still show items but no price suggestion
       if (!relevanceResult.success && relevanceResult.isGeneric) {
+        // For diversity issues (varied results), show the items without price recommendation
+        if (relevanceResult.step === "diversity_analysis" && relevanceResult.analysis) {
+          // Get the items that were classified (even if diverse)
+          const allClassifiedItems = relevanceResult.analysis.totalCount > 0 ? ebayResults.slice(0, 10) : [];
+          
+          return res.status(200).json({
+            success: false,
+            isGeneric: true,
+            message: relevanceResult.reason,
+            step: relevanceResult.step,
+            totalItemsScraped: ebayResults.length,
+            similarItems: allClassifiedItems.map(item => ({
+              title: item.title,
+              price: item.price,
+              source: item.source,
+              condition: item.condition,
+              url: item.url
+            })),
+            diversityInfo: {
+              totalFound: ebayResults.length,
+              relevantCount: relevanceResult.analysis.relevantCount,
+              reason: relevanceResult.analysis.reason
+            }
+          });
+        }
+        
+        // For title too generic, don't show items
         return res.status(200).json({
           success: false,
           isGeneric: true,

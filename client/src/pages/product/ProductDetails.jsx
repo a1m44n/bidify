@@ -463,7 +463,9 @@ export const ProductDetails = () => {
                     setAiError({
                         type: 'generic',
                         message: response.data.message,
-                        step: response.data.step
+                        step: response.data.step,
+                        similarItems: response.data.similarItems || [],
+                        diversityInfo: response.data.diversityInfo
                     });
                 } else {
                     setAiError({
@@ -551,19 +553,56 @@ export const ProductDetails = () => {
                         <span className="text-yellow-600 text-lg">⚠️</span>
                         <div className="flex-1">
                             <h4 className="font-semibold text-yellow-800 mb-2">
-                                {aiError.type === 'generic' ? 'Title Too Generic' : 
-                                 aiError.type === 'no_results' ? 'No Results Found' : 'Error'}
+                                {aiError.type === 'generic' ? 'Search Results Too Varied' : 
+                                 aiError.type === 'no_results' ? 'No Similar Items Found' : 'Error'}
                             </h4>
-                            <p className="text-yellow-700 mb-3">{aiError.message}</p>
+                            <p className="text-yellow-700 mb-3">
+                                {aiError.type === 'generic' 
+                                    ? 'The search results are too varied to provide an accurate price suggestion. However, you can still view the similar items found online.'
+                                    : aiError.message}
+                            </p>
                             
                             {aiError.type === 'generic' && (
-                                <div className="text-sm text-yellow-600 bg-yellow-100 p-2 rounded">
-                                    <strong>💡 Tips for better results:</strong>
-                                    <ul className="mt-1 ml-4 list-disc">
-                                        <li>Include brand name (e.g., "Apple iPhone" instead of "phone")</li>
-                                        <li>Add model/version (e.g., "iPhone 13 Pro" instead of "iPhone")</li>
-                                        <li>Specify key features (e.g., "64GB" or "Black")</li>
-                                    </ul>
+                                <div className="text-sm text-yellow-600 bg-yellow-100 p-2 rounded mb-3">
+                                    <strong>💡 Reason:</strong> Search results include too many different types of items or price ranges are too wide, making it difficult to calculate a reliable price suggestion for bidding.
+                                    {aiError.diversityInfo && (
+                                        <div className="mt-1">
+                                            Found {aiError.diversityInfo.totalFound} items, {aiError.diversityInfo.relevantCount} relevant. {aiError.diversityInfo.reason}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {/* Show similar items even when results are too varied */}
+                            {aiError.type === 'generic' && aiError.similarItems && aiError.similarItems.length > 0 && (
+                                <div className="mt-4">
+                                    <h5 className="font-semibold text-yellow-800 mb-2">Similar Items Found on eBay</h5>
+                                    <div className="max-h-48 overflow-y-auto border rounded-md">
+                                        {aiError.similarItems.map((item, index) => (
+                                            <div key={index} className="p-2 border-b hover:bg-yellow-50 flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-xs bg-gray-200 px-1 rounded">{item.source}</span>
+                                                    {item.condition && (
+                                                        <span className={`text-xs px-1 rounded ${item.condition === 'NEW' ? 'bg-green-200 text-green-800' : 'bg-orange-200 text-orange-800'}`}>
+                                                            {item.condition}
+                                                        </span>
+                                                    )}
+                                                    <a 
+                                                        href={item.url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="text-blue-600 hover:text-blue-800 hover:underline truncate max-w-[250px]"
+                                                    >
+                                                        {item.title || 'Similar Item'}
+                                                    </a>
+                                                </div>
+                                                <span className="font-medium">${item.price.toFixed(2)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-yellow-600 mt-2">
+                                        ⚠️ No price recommendation available due to varied results. Use these items as reference for your bidding decision.
+                                    </p>
                                 </div>
                             )}
                             
