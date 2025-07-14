@@ -106,12 +106,22 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       console.log('🤖 Using AI-powered relevance filtering');
       relevanceResult = await suggestionService.checkRelevanceWithAI(productTitle, ebayResults);
       
-      // Handle generic item detection - still show items but no price suggestion
+      // Handle generic item detection - show filtered items but no price calculations when varied
       if (!relevanceResult.success && relevanceResult.isGeneric) {
-        // For diversity issues (varied results), show the items without price recommendation
-        if (relevanceResult.step === "diversity_analysis" && relevanceResult.analysis) {
-          // Get the items that were classified (even if diverse)
-          const allClassifiedItems = relevanceResult.analysis.totalCount > 0 ? ebayResults.slice(0, 10) : [];
+        // Check if we have relevant items despite diversity issues
+        if (relevanceResult.hasRelevantItems && relevanceResult.relevantItems) {
+          // Show filtered relevant items but no price calculations
+          const items = relevanceResult.relevantItems.map(item => ({
+            title: item.title,
+            price: item.price,
+            source: item.source,
+            condition: item.condition,
+            url: item.url,
+            ...(item.aiClassification && { 
+              aiConfidence: item.aiClassification.confidence,
+              aiCategory: item.aiClassification.category
+            })
+          }));
           
           return res.status(200).json({
             success: false,
@@ -119,22 +129,17 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
             message: relevanceResult.reason,
             step: relevanceResult.step,
             totalItemsScraped: ebayResults.length,
-            similarItems: allClassifiedItems.map(item => ({
-              title: item.title,
-              price: item.price,
-              source: item.source,
-              condition: item.condition,
-              url: item.url
-            })),
-            diversityInfo: {
+            similarItems: items,
+            diversityInfo: relevanceResult.analysis ? {
               totalFound: ebayResults.length,
               relevantCount: relevanceResult.analysis.relevantCount,
               reason: relevanceResult.analysis.reason
-            }
+            } : null,
+            showFilteredList: true // Flag to indicate filtered items without price calculations
           });
         }
         
-        // For title too generic, don't show items
+        // For cases with no relevant items (title too generic), don't show items
         return res.status(200).json({
           success: false,
           isGeneric: true,
@@ -152,6 +157,41 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
           item.description || ''
         )
       );
+      
+      // Check for diversity issues in basic method too
+      if (relevantItems.length > 0) {
+        const prices = relevantItems.map(item => item.price);
+        const minPrice = Math.min(...prices);
+        const maxPrice = Math.max(...prices);
+        const priceVariance = maxPrice / minPrice;
+        
+        // If price variance is too high (same threshold as AI), show filtered items but no price calculations
+        if (priceVariance > 10) {
+          const items = relevantItems.map(item => ({
+            title: item.title,
+            price: item.price,
+            source: item.source,
+            condition: item.condition,
+            url: item.url
+          }));
+          
+          return res.status(200).json({
+            success: false,
+            isGeneric: true,
+            message: `Search results are too varied. Price range too wide ($${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}). Try being more specific with your product title.`,
+            step: "diversity_analysis",
+            totalItemsScraped: ebayResults.length,
+            similarItems: items, // Show filtered items, not all items
+            diversityInfo: {
+              totalFound: ebayResults.length,
+              relevantCount: relevantItems.length,
+              reason: `Price range too wide ($${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)})`,
+              priceVariance
+            },
+            showFilteredList: true // Show filtered items without price calculations
+          });
+        }
+      }
       
       relevanceResult = {
         success: true,

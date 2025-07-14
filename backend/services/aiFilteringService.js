@@ -252,20 +252,7 @@ async function classifyItemsWithAI(searchTerm, scrapedItems) {
       throw new Error('All AI classification batches failed');
     }
     
-    // Step 3: Analyze diversity of results
-    const diversityAnalysis = analyzeResultsDiversity(allClassifications, scrapedItems);
-    
-    if (diversityAnalysis.tooGeneric) {
-      return {
-        success: false,
-        isGeneric: true,
-        reason: `Search results are too varied. ${diversityAnalysis.reason}. Try being more specific with your product title.`,
-        step: "diversity_analysis",
-        analysis: diversityAnalysis
-      };
-    }
-    
-    // Step 4: Return successful classification
+    // Step 3: Get relevant items first, then analyze diversity
     const relevantItems = allClassifications
       .filter(result => result.relevant && result.confidence >= AI_CONFIG.confidenceThreshold)
       .map(result => {
@@ -275,7 +262,22 @@ async function classifyItemsWithAI(searchTerm, scrapedItems) {
           aiClassification: result
         };
       });
+
+    // Step 4: Analyze diversity of results
+    const diversityAnalysis = analyzeResultsDiversity(allClassifications, scrapedItems);
     
+    if (diversityAnalysis.tooGeneric) {
+      return {
+        success: false,
+        isGeneric: true,
+        reason: `Search results are too varied. ${diversityAnalysis.reason}. Try being more specific with your product title.`,
+        step: "diversity_analysis",
+        analysis: diversityAnalysis,
+        relevantItems: relevantItems // Include the relevant items even when diversity fails
+      };
+    }
+    
+    // Step 5: Return successful classification
     console.log(`🎯 AI: Filtered ${scrapedItems.length} → ${relevantItems.length} relevant items`);
     
     return {

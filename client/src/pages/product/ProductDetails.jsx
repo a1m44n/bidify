@@ -465,7 +465,9 @@ export const ProductDetails = () => {
                         message: response.data.message,
                         step: response.data.step,
                         similarItems: response.data.similarItems || [],
-                        diversityInfo: response.data.diversityInfo
+                        diversityInfo: response.data.diversityInfo,
+                        showFullList: response.data.showFullList || false,
+                        showFilteredList: response.data.showFilteredList || false
                     });
                 } else {
                     setAiError({
@@ -525,7 +527,7 @@ export const ProductDetails = () => {
                     
                     <p className="text-xs text-gray-500">
                         {useAI 
-                            ? '🤖 AI analyzes each item for relevance and filters out accessories' 
+                            ? '🤖 AI analyzes each item for relevance and filters out skewed results' 
                             : '📝 Basic text matching (faster but less accurate)'}
                     </p>
                 </div>
@@ -576,8 +578,8 @@ export const ProductDetails = () => {
                             {/* Show similar items even when results are too varied */}
                             {aiError.type === 'generic' && aiError.similarItems && aiError.similarItems.length > 0 && (
                                 <div className="mt-4">
-                                    <h5 className="font-semibold text-yellow-800 mb-2">Similar Items Found on eBay</h5>
-                                    <div className="max-h-48 overflow-y-auto border rounded-md">
+                                    <h5 className="font-semibold text-yellow-800 mb-2">Similar Items Found Online</h5>
+                                    <div className={`border rounded-md ${aiError.showFullList || aiError.showFilteredList ? 'max-h-80' : 'max-h-48'} overflow-y-auto`}>
                                         {aiError.similarItems.map((item, index) => (
                                             <div key={index} className="p-2 border-b hover:bg-yellow-50 flex justify-between items-center">
                                                 <div className="flex items-center gap-2">
@@ -601,8 +603,22 @@ export const ProductDetails = () => {
                                         ))}
                                     </div>
                                     <p className="text-xs text-yellow-600 mt-2">
-                                        ⚠️ No price recommendation available due to varied results. Use these items as reference for your bidding decision.
+                                        {aiError.showFullList || aiError.showFilteredList
+                                            ? "Click on any item to view the original listing" 
+                                            : "⚠️ No price recommendation available due to varied results. Use these items as reference for your bidding decision."}
                                     </p>
+                                    
+                                    {(aiError.showFullList || aiError.showFilteredList) && (
+                                        <button
+                                            onClick={() => {
+                                                setAiError(null);
+                                                setShowSuggestion(false);
+                                            }}
+                                            className="mt-3 text-yellow-600 hover:text-yellow-800 text-sm"
+                                        >
+                                            Hide suggestions
+                                        </button>
+                                    )}
                                 </div>
                             )}
                             

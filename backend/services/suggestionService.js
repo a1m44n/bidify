@@ -86,7 +86,24 @@ async function checkRelevanceWithAI(searchTerm, scrapedItems) {
     const aiResult = await aiFilteringService.classifyItemsWithAI(searchTerm, scrapedItems);
     
     if (!aiResult.success) {
-      // Return error information for generic items
+      // Check if it's a diversity issue - if so, try to get the relevant items anyway
+      if (aiResult.step === "diversity_analysis" && aiResult.relevantItems && aiResult.relevantItems.length > 0) {
+        // We have relevant items but diversity issues - return them for display without price calculations
+        console.log(`🔄 Diversity issue detected, but ${aiResult.relevantItems.length} relevant items found`);
+        
+        return {
+          success: false,
+          isGeneric: aiResult.isGeneric,
+          reason: aiResult.reason,
+          step: aiResult.step,
+          fallbackUsed: false,
+          hasRelevantItems: true,
+          relevantItems: aiResult.relevantItems,
+          analysis: aiResult.analysis
+        };
+      }
+      
+      // Return error information for generic items (no relevant items case)
       return {
         success: false,
         isGeneric: aiResult.isGeneric,
