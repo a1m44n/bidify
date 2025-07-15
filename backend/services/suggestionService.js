@@ -76,41 +76,56 @@ async function generatePriceSuggestionFiveStage(productTitle, category, conditio
       stage3Result.condition = stage2Result.condition;
     }
     
-    // Handle various Stage 3 failure cases
+    // Handle various Stage 3 failure cases - MODIFIED TO CONTINUE PROCESSING
     if (!stage3Result.success) {
       const processingTime = Date.now() - startTime;
       
-      // Generic/diverse results - return with filtered items if available
+      // Generic/diverse results - CONTINUE PROCESSING if we have relevant items
       if (stage3Result.isGeneric && stage3Result.relevantItems && stage3Result.relevantItems.length > 0) {
+        console.log(`   ⚠️  Stage 3 diversity warning: ${stage3Result.reason}`);
+        console.log(`   🔄 CONTINUING to calculate price despite diversity issues...`);
+        
+        // Override stage3Result to continue processing with available items
+        stage3Result = {
+          success: true,
+          stage: 3,
+          items: stage3Result.relevantItems,
+          searchTerm: stage2Result.searchTerm,
+          condition: stage2Result.condition,
+          diversityWarning: {
+            hasWarning: true,
+            reason: stage3Result.reason,
+            step: stage3Result.step,
+            analysis: stage3Result.analysis
+          },
+          aiAnalysis: stage3Result.aiAnalysis || {
+            method: 'traditional_with_diversity_warning',
+            totalItemsAnalyzed: stage2Result.items.length,
+            relevantFound: stage3Result.relevantItems.length
+          }
+        };
+        
+        console.log(`   ✅ Stage 3 Modified: Proceeding with ${stage3Result.items.length} items despite diversity warning`);
+        
+        // Continue to Stage 4 - DO NOT RETURN EARLY
+      } else {
+        // Only return early if we truly have no relevant items
+        console.log(`   ❌ Stage 3 failure: No relevant items found`);
         return {
           success: false,
           stage: 3,
-          isGeneric: true,
+          isGeneric: stage3Result.isGeneric || false,
           reason: stage3Result.reason,
           step: stage3Result.step,
           totalItemsScraped: stage1Result.items.length,
-          similarItems: stage3Result.relevantItems.slice(0, 15).map(formatItemForResponse),
-          diversityInfo: stage3Result.analysis,
-          showFilteredList: true,
           processingTime,
           stageResults: { stage1: stage1Result, stage2: stage2Result, stage3: stage3Result }
         };
       }
-      
-      // No relevant items or other failures
-      return {
-        success: false,
-        stage: 3,
-        isGeneric: stage3Result.isGeneric || false,
-        reason: stage3Result.reason,
-        step: stage3Result.step,
-        totalItemsScraped: stage1Result.items.length,
-        processingTime,
-        stageResults: { stage1: stage1Result, stage2: stage2Result, stage3: stage3Result }
-      };
     }
     
     if (stage3Result.items.length === 0) {
+      console.log(`   ❌ Stage 3: No items remaining after relevance filtering`);
       return {
         success: false,
         stage: 3,
@@ -202,7 +217,7 @@ function formatItemForResponse(item) {
  * Format enhanced suggestion response with all new fields
  */
 function formatEnhancedSuggestionResponse(stage5Result, processingTime, stageResults) {
-  return {
+  const response = {
     // Core recommendation
     recommendedBid: stage5Result.calculation.recommendedBid,
     reasoning: stage5Result.calculation.reasoning,
@@ -244,7 +259,8 @@ function formatEnhancedSuggestionResponse(stage5Result, processingTime, stageRes
         itemsAfterRelevance: stageResults.stage3.items.length,
         itemsRemoved: stageResults.stage2.items.length - stageResults.stage3.items.length,
         description: "AI relevance filtering",
-        ...(stageResults.stage3.aiAnalysis && { aiAnalysis: stageResults.stage3.aiAnalysis })
+        ...(stageResults.stage3.aiAnalysis && { aiAnalysis: stageResults.stage3.aiAnalysis }),
+        ...(stageResults.stage3.diversityWarning && { diversityWarning: stageResults.stage3.diversityWarning })
       },
       stage4: {
         itemsAfterOutliers: stageResults.stage4.items.length,
@@ -263,6 +279,18 @@ function formatEnhancedSuggestionResponse(stage5Result, processingTime, stageRes
       }
     }
   };
+
+  // Add diversity warning to top level if present
+  if (stageResults.stage3.diversityWarning && stageResults.stage3.diversityWarning.hasWarning) {
+    response.diversityWarning = {
+      message: stageResults.stage3.diversityWarning.reason,
+      note: "Price calculated despite search result diversity. Consider using more specific search terms for better accuracy.",
+      step: stageResults.stage3.diversityWarning.step,
+      hasWarning: true
+    };
+  }
+
+  return response;
 }
 
 /**
