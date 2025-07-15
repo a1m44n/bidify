@@ -44,7 +44,7 @@ const markMessageAsRead = asyncHandler(async (req, res) => {
         }
         
         // Check if the user is the recipient
-        if (message.recipient.toString() !== userId) {
+        if (message.recipient.toString() !== userId.toString()) {
             res.status(403);
             throw new Error("Access denied: You cannot mark this message as read");
         }

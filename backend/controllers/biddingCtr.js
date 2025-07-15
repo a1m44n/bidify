@@ -61,7 +61,7 @@ const placeBid = asyncHandler(async (req, res) => {
     }
 
     // Check if the current user is the seller
-    if (product.user._id.toString() === userId) {
+    if (product.user._id.toString() === userId.toString()) {
         res.status(403);
         throw new Error("You cannot bid on your own items");
     }
@@ -72,7 +72,7 @@ const placeBid = asyncHandler(async (req, res) => {
         .populate("user", "username email");
 
     // If there's a highest bid and it belongs to the current user, prevent overbidding
-    if (highestBid && highestBid.user._id.toString() === userId) {
+    if (highestBid && highestBid.user._id.toString() === userId.toString()) {
         res.status(400);
         throw new Error("You already have the highest bid. Wait for someone else to bid before bidding again.");
     }
@@ -110,7 +110,7 @@ const placeBid = asyncHandler(async (req, res) => {
     const bidder = await User.findById(userId, "username");
 
     // If there was a previous highest bid by a different user, notify them that they've been outbid
-    if (highestBid && highestBid.user._id.toString() !== userId) {
+    if (highestBid && highestBid.user._id.toString() !== userId.toString()) {
         // Send outbid notification through both internal message and Telegram (if enabled)
         await notificationService.sendOutbidNotification(
             product,
@@ -175,7 +175,7 @@ const sellProduct = asyncHandler(async (req, res) => {
     }
 
     // check if the user is authorized to sell the product
-    if (product.user.toString() !== userId) {
+    if (product.user.toString() !== userId.toString()) {
         return res.status(403).json({error: "You are not authorized to sell this product"});
     }
 

@@ -58,7 +58,7 @@ const createAutoBid = asyncHandler(async (req, res) => {
     }
 
     // Check if the current user is the seller
-    if (product.user.toString() === userId) {
+    if (product.user.toString() === userId.toString()) {
         console.log('User is seller, cannot auto-bid');
         res.status(403);
         throw new Error("You cannot set up auto-bidding on your own items");
@@ -111,7 +111,7 @@ const createAutoBid = asyncHandler(async (req, res) => {
         // Only place an initial bid if:
         // 1. There's no highest bid, OR
         // 2. The highest bid exists but belongs to someone else AND our max amount is higher
-        if (!highestBid || (highestBid && highestBid.user.toString() !== userId && maxBidAmount > highestBid.price)) {
+        if (!highestBid || (highestBid && highestBid.user.toString() !== userId.toString() && maxBidAmount > highestBid.price)) {
             const currentPrice = highestBid ? highestBid.price : product.price;
             const minIncrement = calculateMinBidIncrement(currentPrice);
             const initialBidAmount = Math.min(maxBidAmount, currentPrice + minIncrement);
