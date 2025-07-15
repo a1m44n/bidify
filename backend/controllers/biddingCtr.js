@@ -3,6 +3,7 @@ const BiddingProduct = require("../models/biddingModel");  // Changed to PascalC
 const Product = require("../models/productModels");
 const User = require("../models/UserModels"); 
 const Wishlist = require("../models/wishlistModel");
+const AutoBid = require("../models/autoBidModel");
 const { processAutoBids } = require("./autoBidCtr");
 const sendEmail = require("../utils/sendMail");
 const notificationService = require("../utils/notificationService");
@@ -74,6 +75,18 @@ const placeBid = asyncHandler(async (req, res) => {
     if (highestBid && highestBid.user._id.toString() === userId) {
         res.status(400);
         throw new Error("You already have the highest bid. Wait for someone else to bid before bidding again.");
+    }
+
+    // Check if the user has an active auto-bid for this product
+    const userAutoBid = await AutoBid.findOne({
+        user: userId,
+        product: productId,
+        isActive: true
+    });
+
+    if (userAutoBid) {
+        res.status(400);
+        throw new Error("You have an active auto-bid on this product. Please disable auto-bidding before placing manual bids.");
     }
 
     // Calculate minimum required bid

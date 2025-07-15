@@ -847,51 +847,69 @@ export const ProductDetails = () => {
                 {renderPriceSuggestion()}
                 {renderAutoBidding()}
                 
-                <form onSubmit={handleBidSubmit} className="mt-4">
-                    <div className="mb-4">
-                        <div className="flex justify-between items-center mb-2">
-                            <label className="block text-gray-700 text-sm font-bold">
-                                Your Bid Amount ($)
-                            </label>
-                            <div className="flex items-center gap-1">
-                                <span className="text-sm text-gray-600">
-                                    Minimum increment: {getMinIncrementText(highestBid ? highestBid.price : product.price)}
-                                </span>
-                                <div className="relative group">
-                                    <FiInfo className="text-gray-400 hover:text-gray-600 cursor-help w-4 h-4" />
-                                    <div className="absolute right-0 p-3 mt-2 text-sm bg-gray-800 text-white rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                                        <IncrementRulesTable />
+                {autoBidEnabled ? (
+                    <div className="mt-4 p-4 bg-blue-50 rounded-md border border-blue-200">
+                        <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-md font-medium text-blue-800">Manual Bidding Disabled</h4>
+                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">Auto-bid Active</span>
+                        </div>
+                        <p className="text-sm text-blue-700 mb-3">
+                            You cannot place manual bids while auto-bidding is active. The system will automatically bid for you up to ${userAutoBid?.maxBidAmount.toFixed(2)}.
+                        </p>
+                        <button
+                            onClick={handleDisableAutoBid}
+                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 text-sm"
+                        >
+                            Disable Auto-Bidding to Place Manual Bids
+                        </button>
+                    </div>
+                ) : (
+                    <form onSubmit={handleBidSubmit} className="mt-4">
+                        <div className="mb-4">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="block text-gray-700 text-sm font-bold">
+                                    Your Bid Amount ($)
+                                </label>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-sm text-gray-600">
+                                        Minimum increment: {getMinIncrementText(highestBid ? highestBid.price : product.price)}
+                                    </span>
+                                    <div className="relative group">
+                                        <FiInfo className="text-gray-400 hover:text-gray-600 cursor-help w-4 h-4" />
+                                        <div className="absolute right-0 p-3 mt-2 text-sm bg-gray-800 text-white rounded shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
+                                            <IncrementRulesTable />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                            <input
+                                type="number"
+                                value={bidAmount}
+                                onChange={(e) => setBidAmount(e.target.value)}
+                                onWheel={(e) => e.target.blur()}
+                                min={highestBid ? highestBid.price + 0.01 : product.price}
+                                step="0.01"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
+                                required
+                            />
+                            <p className="text-sm text-gray-500 mt-1">
+                                Current {highestBid ? "highest bid" : "starting price"}: ${(highestBid ? highestBid.price : product.price).toFixed(2)}
+                            </p>
                         </div>
-                        <input
-                            type="number"
-                            value={bidAmount}
-                            onChange={(e) => setBidAmount(e.target.value)}
-                            onWheel={(e) => e.target.blur()}
-                            min={highestBid ? highestBid.price + 0.01 : product.price}
-                            step="0.01"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
-                            required
-                        />
-                        <p className="text-sm text-gray-500 mt-1">
-                            Current {highestBid ? "highest bid" : "starting price"}: ${(highestBid ? highestBid.price : product.price).toFixed(2)}
-                        </p>
-                    </div>
-                    {bidError && (
-                        <div className="text-red-500 mb-4">{bidError}</div>
-                    )}
-                    {bidSuccess && (
-                        <div className="text-green-500 mb-4">{bidSuccess}</div>
-                    )}
-                    <button
-                        type="submit"
-                        className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                    >
-                        Place Bid
-                    </button>
-                </form>
+                        {bidError && (
+                            <div className="text-red-500 mb-4">{bidError}</div>
+                        )}
+                        {bidSuccess && (
+                            <div className="text-green-500 mb-4">{bidSuccess}</div>
+                        )}
+                        <button
+                            type="submit"
+                            className="w-full bg-primary text-white py-2 px-4 rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                        >
+                            Place Bid
+                        </button>
+                    </form>
+                )}
 
                 <div className="mt-8">
                     <h3 className="text-lg font-bold mb-4">Bidding History</h3>
