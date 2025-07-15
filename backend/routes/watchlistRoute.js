@@ -2,23 +2,23 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleWare');
 const {
-  addToWishlist,
-  removeFromWishlist,
-  getWishlist,
-  checkWishlistItem
-} = require('../controllers/wishlistCtr');
+  addToWatchlist,
+  removeFromWatchlist,
+  getWatchlist,
+  checkWatchlistItem
+} = require('../controllers/watchlistCtr');
 
 // All routes are protected
 router.use(protect);
 
 router.route('/')
-  .get(getWishlist);
+  .get(getWatchlist);
 
 router.route('/:productId')
-  .post(addToWishlist)
-  .delete(removeFromWishlist);
+  .post(addToWatchlist)
+  .delete(removeFromWatchlist);
 
 router.route('/check/:productId')
-  .get(checkWishlistItem);
+  .get(checkWatchlistItem);
 
 module.exports = router; 

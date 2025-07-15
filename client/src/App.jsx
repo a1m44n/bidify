@@ -10,7 +10,7 @@ import MyProducts from './pages/product/MyProducts';
 import UserProfile from './pages/profile/UserProfile';
 import PublicProfile from './pages/profile/PublicProfile';
 import TelegramSettings from './pages/account/TelegramSettings';
-import WishlistPage from './pages/wishlist/WishlistPage';
+import WatchlistPage from './pages/watchlist/WatchlistPage';
 
 function App() {
   return (
@@ -76,10 +76,10 @@ function App() {
               </Layout>
             } 
           />
-          <Route path="/wishlist" 
+          <Route path="/watchlist" 
             element={
               <Layout>
-                <WishlistPage />
+                <WatchlistPage />
               </Layout>
             } 
           />

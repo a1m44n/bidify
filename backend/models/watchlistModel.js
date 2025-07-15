@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const wishlistSchema = new mongoose.Schema({
+const watchlistSchema = new mongoose.Schema({
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
@@ -19,8 +19,8 @@ const wishlistSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound index to ensure a user can't wishlist the same product twice
-wishlistSchema.index({ userId: 1, productId: 1 }, { unique: true });
+// Compound index to ensure a user can't watchlist the same product twice
+watchlistSchema.index({ userId: 1, productId: 1 }, { unique: true });
 
-const Wishlist = mongoose.model('Wishlist', wishlistSchema);
-module.exports = Wishlist; 
+const Watchlist = mongoose.model('Watchlist', watchlistSchema);
+module.exports = Watchlist; 

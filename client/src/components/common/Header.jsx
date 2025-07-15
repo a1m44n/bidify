@@ -182,9 +182,9 @@ export const Header = () => {
                                             </CustomNavLinkList>
                                         </li>
                                         <li className="capitalize list-none">
-                                            <CustomNavLinkList href="/wishlist" isActive={location.pathname === "/wishlist"} className={`${isScrolled || !isHomePage ? "text-black" : "text-white"}`}>
-                                                Wishlist
-                                            </CustomNavLinkList>
+                                                            <CustomNavLinkList href="/watchlist" isActive={location.pathname === "/watchlist"} className={`${isScrolled || !isHomePage ? "text-black" : "text-white"}`}>
+                  Watchlist
+                </CustomNavLinkList>
                                         </li>
                                     </>
                                 ) : (
@@ -280,9 +280,9 @@ export const Header = () => {
                                             </CustomNavLinkList>
                                         </li>
                                         <li className="uppercase list-none">
-                                            <CustomNavLinkList href="/wishlist" className="text-white">
-                                                Wishlist
-                                            </CustomNavLinkList>
+                                                            <CustomNavLinkList href="/watchlist" className="text-white">
+                  Watchlist
+                </CustomNavLinkList>
                                         </li>
                                     </>
                                 ) : (

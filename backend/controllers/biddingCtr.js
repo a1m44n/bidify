@@ -2,7 +2,7 @@ const asyncHandler = require("express-async-handler");
 const BiddingProduct = require("../models/biddingModel");  // Changed to PascalCase
 const Product = require("../models/productModels");
 const User = require("../models/UserModels"); 
-const Wishlist = require("../models/wishlistModel");
+const Watchlist = require("../models/watchlistModel");
 const AutoBid = require("../models/autoBidModel");
 const { processAutoBids } = require("./autoBidCtr");
 const sendEmail = require("../utils/sendMail");
@@ -10,32 +10,32 @@ const notificationService = require("../utils/notificationService");
 const bidService = require("../services/bidService");
 const { createBid, calculateMinBidIncrement } = bidService;
 
-// Helper function to add product to wishlist
-const addToWishlistIfNotExists = async (userId, productId) => {
+// Helper function to add product to watchlist
+const addToWatchlistIfNotExists = async (userId, productId) => {
     try {
         // Check if product exists and get the owner
         const product = await Product.findById(productId);
         if (!product) {
-            console.log(`Product ${productId} not found, skipping wishlist add`);
+            console.log(`Product ${productId} not found, skipping watchlist add`);
             return;
         }
 
-        // Don't add own products to wishlist
+        // Don't add own products to watchlist
         if (product.user.toString() === userId.toString()) {
-            console.log(`User ${userId} cannot add their own product ${productId} to wishlist`);
+            console.log(`User ${userId} cannot add their own product ${productId} to watchlist`);
             return;
         }
 
-        // Check if already in wishlist
-        const existingWishlistItem = await Wishlist.findOne({ userId, productId });
-        if (!existingWishlistItem) {
-            // Add to wishlist if not already there
-            await Wishlist.create({ userId, productId });
-            console.log(`Product ${productId} automatically added to wishlist for user ${userId}`);
+        // Check if already in watchlist
+        const existingWatchlistItem = await Watchlist.findOne({ userId, productId });
+        if (!existingWatchlistItem) {
+            // Add to watchlist if not already there
+            await Watchlist.create({ userId, productId });
+            console.log(`Product ${productId} automatically added to watchlist for user ${userId}`);
         }
     } catch (error) {
         // Log the error but don't fail the bid/auto-bid process
-        console.error('Error auto-adding to wishlist:', error);
+        console.error('Error auto-adding to watchlist:', error);
     }
 };
 
@@ -103,8 +103,8 @@ const placeBid = asyncHandler(async (req, res) => {
     // Create the user's manual bid
     const biddingProduct = await createBid(userId, productId, price);
     
-    // Automatically add product to wishlist
-    await addToWishlistIfNotExists(userId, productId);
+    // Automatically add product to watchlist
+    await addToWatchlistIfNotExists(userId, productId);
     
     // Get the user who placed the bid
     const bidder = await User.findById(userId, "username");

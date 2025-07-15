@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import axios from "axios";
 import API_URL from '../../config/api';
 
-export const ProductCard = ({ item, isWishlisted: initialIsWishlisted, onRemoveFromWishlist }) => {
+export const ProductCard = ({ item, isWatchlisted: initialIsWatchlisted, onRemoveFromWatchlist }) => {
     console.log('ProductCard received item:', item);
     
     if (!item || !item._id) {
@@ -18,30 +18,30 @@ export const ProductCard = ({ item, isWishlisted: initialIsWishlisted, onRemoveF
 
     const { isLoggedIn, user } = useAuth();
     const navigate = useNavigate();
-    const [isWishlisted, setIsWishlisted] = useState(initialIsWishlisted || false);
+    const [isWatchlisted, setIsWatchlisted] = useState(initialIsWatchlisted || false);
     const [isLoading, setIsLoading] = useState(false);
 
     useEffect(() => {
         if (isLoggedIn && user) {
-            checkWishlistStatus();
+            checkWatchlistStatus();
         }
     }, [item._id, isLoggedIn, user]);
 
-    const checkWishlistStatus = async () => {
+    const checkWatchlistStatus = async () => {
         try {
             const response = await axios.get(
-                `${API_URL}/api/wishlist/check/${item._id}`,
+                `${API_URL}/api/watchlist/check/${item._id}`,
                 { withCredentials: true }
             );
-            console.log('Wishlist status response:', response.data);
-            setIsWishlisted(response.data.isWishlisted);
+            console.log('Watchlist status response:', response.data);
+            setIsWatchlisted(response.data.isWatchlisted);
         } catch (error) {
-            console.error('Error checking wishlist status:', error);
+            console.error('Error checking watchlist status:', error);
         }
     };
 
-    const handleWishlistClick = async (e) => {
-        console.log('Wishlist button clicked');
+    const handleWatchlistClick = async (e) => {
+        console.log('Watchlist button clicked');
         e.preventDefault();
         e.stopPropagation();
         
@@ -58,34 +58,34 @@ export const ProductCard = ({ item, isWishlisted: initialIsWishlisted, onRemoveF
 
         setIsLoading(true);
         try {
-            console.log('Current wishlist state:', isWishlisted);
-            if (isWishlisted) {
-                console.log('Removing from wishlist');
+            console.log('Current watchlist state:', isWatchlisted);
+            if (isWatchlisted) {
+                console.log('Removing from watchlist');
                 await axios.delete(
-                    `${API_URL}/api/wishlist/${item._id}`,
+                    `${API_URL}/api/watchlist/${item._id}`,
                     { withCredentials: true }
                 );
-                setIsWishlisted(false);
-                if (onRemoveFromWishlist) {
-                    onRemoveFromWishlist(item._id);
+                setIsWatchlisted(false);
+                if (onRemoveFromWatchlist) {
+                    onRemoveFromWatchlist(item._id);
                 }
             } else {
-                console.log('Adding to wishlist');
+                console.log('Adding to watchlist');
                 await axios.post(
-                    `${API_URL}/api/wishlist/${item._id}`,
+                    `${API_URL}/api/watchlist/${item._id}`,
                     {},
                     { withCredentials: true }
                 );
-                setIsWishlisted(true);
+                setIsWatchlisted(true);
             }
         } catch (error) {
-            console.error('Error updating wishlist:', error);
+            console.error('Error updating watchlist:', error);
             
             // Show user-friendly error message for bid restriction
             if (error.response?.status === 400 && error.response?.data?.message?.includes('placed a bid')) {
-                alert('Cannot remove from wishlist - you have placed a bid on this item');
+                alert('Cannot remove from watchlist - you have placed a bid on this item');
             } else {
-                alert('Error updating wishlist. Please try again.');
+                alert('Error updating watchlist. Please try again.');
             }
         } finally {
             setIsLoading(false);
@@ -164,13 +164,13 @@ export const ProductCard = ({ item, isWishlisted: initialIsWishlisted, onRemoveF
                     {!isOwnProduct && (
                         <button
                             type="button"
-                            onClick={handleWishlistClick}
+                            onClick={handleWatchlistClick}
                             disabled={isLoading}
                             className={`rounded-lg px-4 py-3 ml-2 transition-colors duration-200 ${
-                                isWishlisted ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-200 hover:bg-gray-300'
+                                isWatchlisted ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-200 hover:bg-gray-300'
                             }`}
                         >
-                            {isWishlisted ? (
+                            {isWatchlisted ? (
                                 <MdOutlineFavorite size={20} className="text-white" />
                             ) : (
                                 <MdOutlineFavoriteBorder size={20} className="text-gray-600" />
@@ -194,6 +194,6 @@ ProductCard.propTypes = {
         isSoldOut: PropTypes.bool,
         isArchived: PropTypes.bool,
     }).isRequired,
-    isWishlisted: PropTypes.bool,
-    onRemoveFromWishlist: PropTypes.func
+    isWatchlisted: PropTypes.bool,
+    onRemoveFromWatchlist: PropTypes.func
 };

@@ -6,8 +6,8 @@ import { ProductCard } from '../../components/cards/ProductCard';
 import { Container, Heading } from '../../components/common/Design';
 import API_URL from '../../config/api';
 
-const WishlistPage = () => {
-  const [wishlistItems, setWishlistItems] = useState([]);
+const WatchlistPage = () => {
+  const [watchlistItems, setWatchlistItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -17,15 +17,15 @@ const WishlistPage = () => {
       navigate('/login');
       return;
     }
-    fetchWishlist();
+    fetchWatchlist();
   }, [user, navigate]);
 
-  const fetchWishlist = async () => {
+  const fetchWatchlist = async () => {
     try {
-      const response = await axios.get(`${API_URL}/api/wishlist`, {
+      const response = await axios.get(`${API_URL}/api/watchlist`, {
         withCredentials: true
       });
-      console.log('Raw wishlist response:', response.data);
+      console.log('Raw watchlist response:', response.data);
 
       // Map the populated product data to match ProductCard expectations
       const mappedItems = response.data.data.map(item => ({
@@ -41,24 +41,24 @@ const WishlistPage = () => {
       }));
 
       console.log('Final mapped items:', mappedItems);
-      setWishlistItems(mappedItems);
+      setWatchlistItems(mappedItems);
       setLoading(false);
     } catch (error) {
-      console.error('Error fetching wishlist:', error);
+      console.error('Error fetching watchlist:', error);
       setLoading(false);
     }
   };
 
-  const handleRemoveFromWishlist = async (productId) => {
+  const handleRemoveFromWatchlist = async (productId) => {
     try {
-      console.log('Removing product from wishlist:', productId);
-      await axios.delete(`${API_URL}/api/wishlist/${productId}`, {
+      console.log('Removing product from watchlist:', productId);
+      await axios.delete(`${API_URL}/api/watchlist/${productId}`, {
         withCredentials: true
       });
       // Remove item from state
-      setWishlistItems(prev => prev.filter(item => item._id !== productId));
+      setWatchlistItems(prev => prev.filter(item => item._id !== productId));
     } catch (error) {
-      console.error('Error removing from wishlist:', error);
+      console.error('Error removing from watchlist:', error);
     }
   };
 
@@ -78,13 +78,13 @@ const WishlistPage = () => {
     <section className="pt-24">
       <Container>
         <Heading 
-          title="My Wishlist" 
+          title="My Watchlist" 
           subtitle="Your favorite auction items"
         />
         
-        {!wishlistItems || wishlistItems.length === 0 ? (
+        {!watchlistItems || watchlistItems.length === 0 ? (
           <div className="text-center py-12">
-            <h2 className="text-xl text-gray-600">Your wishlist is empty</h2>
+            <h2 className="text-xl text-gray-600">Your watchlist is empty</h2>
             <button
               onClick={() => navigate('/')}
               className="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
@@ -94,12 +94,12 @@ const WishlistPage = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 my-8">
-            {wishlistItems.map((product) => (
+            {watchlistItems.map((product) => (
               <ProductCard
                 key={product._id}
                 item={product}
-                isWishlisted={true}
-                onRemoveFromWishlist={() => handleRemoveFromWishlist(product._id)}
+                isWatchlisted={true}
+                onRemoveFromWatchlist={() => handleRemoveFromWatchlist(product._id)}
               />
             ))}
           </div>
@@ -109,4 +109,4 @@ const WishlistPage = () => {
   );
 };
 
-export default WishlistPage; 
+export default WatchlistPage; 

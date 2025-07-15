@@ -14,7 +14,7 @@ const errorHandler = require('./middleware/errorMiddleWare');
 const messageRoutes = require("./routes/messageRoutes");
 const suggestionRoute = require('./routes/suggestionRoute');
 const telegramWebhookRoute = require('./routes/telegramWebhookRoute');
-const wishlistRoute = require('./routes/wishlistRoute');
+const watchlistRoute = require('./routes/watchlistRoute');
 const auctionMonitorService = require('./services/auctionMonitorService');
 
 const app = express();
@@ -53,7 +53,7 @@ app.use("/api/category", categoryRoute);
 app.use("/api/messages", messageRoutes);
 app.use("/api/suggestion", suggestionRoute);
 app.use("/api/telegram/webhook", telegramWebhookRoute);
-app.use("/api/wishlist", wishlistRoute);
+app.use("/api/watchlist", watchlistRoute);
 
 // Static files for uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
