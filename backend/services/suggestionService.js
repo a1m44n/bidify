@@ -159,40 +159,13 @@ async function generatePriceSuggestionFiveStage(productTitle, category, conditio
     
     return {
       success: true,
-      suggestion: {
-        ...stage5Result.calculation,
-        condition: stage5Result.condition,
-        sources: stage5Result.items.length,
-        items: stage5Result.items.slice(0, 10).map(formatItemForResponse),
-        generatedAt: new Date().toISOString(),
-        processingTime,
-        fiveStageAnalysis: {
-          stage1: {
-            itemsScraped: stage1Result.items.length,
-            success: stage1Result.success
-          },
-          stage2: {
-            itemsAfterFiltering: stage2Result.items.length,
-            itemsRemoved: stage1Result.items.length - stage2Result.items.length,
-            removedCount: stage2Result.removedCount
-          },
-          stage3: {
-            method: useAI ? (stage3Result.fallbackUsed ? 'ai_with_fallback' : 'ai') : 'traditional',
-            itemsAfterRelevance: stage3Result.items.length,
-            itemsRemoved: stage2Result.items.length - stage3Result.items.length,
-            ...(stage3Result.aiAnalysis && { aiAnalysis: stage3Result.aiAnalysis })
-          },
-          stage4: {
-            itemsAfterOutliers: stage4Result.items.length,
-            itemsRemoved: stage3Result.items.length - stage4Result.items.length,
-            outlierInfo: stage4Result.outlierInfo
-          },
-          stage5: {
-            finalItemCount: stage5Result.items.length,
-            calculation: stage5Result.calculation
-          }
-        }
-      }
+      suggestion: formatEnhancedSuggestionResponse(stage5Result, processingTime, {
+        stage1: stage1Result,
+        stage2: stage2Result,
+        stage3: stage3Result,
+        stage4: stage4Result,
+        stage5: stage5Result
+      })
     };
     
   } catch (error) {
@@ -222,6 +195,73 @@ function formatItemForResponse(item) {
       aiReasoning: item.aiClassification.reasoning
     }),
     ...(item.traditionalMatch && { traditionalMatch: true })
+  };
+}
+
+/**
+ * Format enhanced suggestion response with all new fields
+ */
+function formatEnhancedSuggestionResponse(stage5Result, processingTime, stageResults) {
+  return {
+    // Core recommendation
+    recommendedBid: stage5Result.calculation.recommendedBid,
+    reasoning: stage5Result.calculation.reasoning,
+    confidence: stage5Result.calculation.confidence,
+    sampleQuality: stage5Result.calculation.sampleQuality,
+    
+    // Price analysis
+    priceRange: stage5Result.calculation.priceRange,
+    averagePrice: stage5Result.calculation.averagePrice,
+    medianPrice: stage5Result.calculation.medianPrice,
+    priceVariance: stage5Result.calculation.priceVariance,
+    
+    // Item details
+    condition: stage5Result.condition,
+    sources: stage5Result.items.length,
+    itemCount: stage5Result.calculation.itemCount,
+    items: stage5Result.items.slice(0, 10).map(formatItemForResponse),
+    
+    // Processing metadata
+    generatedAt: new Date().toISOString(),
+    processingTime,
+    
+    // Enhanced 5-stage analysis
+    fiveStageAnalysis: {
+      stage1: {
+        itemsScraped: stageResults.stage1.items.length,
+        success: stageResults.stage1.success,
+        description: "Initial eBay scraping"
+      },
+      stage2: {
+        itemsAfterFiltering: stageResults.stage2.items.length,
+        itemsRemoved: stageResults.stage1.items.length - stageResults.stage2.items.length,
+        removedCount: stageResults.stage2.removedCount,
+        description: "Basic data validation"
+      },
+      stage3: {
+        method: stageResults.stage3.aiAnalysis ? 
+          (stageResults.stage3.fallbackUsed ? 'ai_with_fallback' : 'ai') : 'traditional',
+        itemsAfterRelevance: stageResults.stage3.items.length,
+        itemsRemoved: stageResults.stage2.items.length - stageResults.stage3.items.length,
+        description: "AI relevance filtering",
+        ...(stageResults.stage3.aiAnalysis && { aiAnalysis: stageResults.stage3.aiAnalysis })
+      },
+      stage4: {
+        itemsAfterOutliers: stageResults.stage4.items.length,
+        itemsRemoved: stageResults.stage3.items.length - stageResults.stage4.items.length,
+        outlierInfo: stageResults.stage4.outlierInfo,
+        description: "Comprehensive outlier removal"
+      },
+      stage5: {
+        finalItemCount: stage5Result.items.length,
+        calculation: {
+          recommendedBid: stage5Result.calculation.recommendedBid,
+          confidence: stage5Result.calculation.confidence,
+          priceVariance: stage5Result.calculation.priceVariance
+        },
+        description: "Enhanced price calculation"
+      }
+    }
   };
 }
 
@@ -380,6 +420,7 @@ module.exports = {
   // NEW 5-STAGE SYSTEM
   generatePriceSuggestionFiveStage,
   formatItemForResponse,
+  formatEnhancedSuggestionResponse,
   
   // LEGACY SUPPORT (for backwards compatibility)
   generateExpandedKeywords,
