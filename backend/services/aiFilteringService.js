@@ -7,105 +7,241 @@ const openai = new OpenAI({
 
 // Configuration for AI filtering
 const AI_CONFIG = {
-  timeout: 20000,     // 20 seconds timeout
-  batchSize: 20,      // Process 20 items per batch
+  timeout: 30000,     // 30 seconds timeout for complex analysis
+  batchSize: 15,      // Process 15 items per batch for better accuracy
   maxRetries: 3,
   retryDelay: 2000,
-  confidenceThreshold: 0.7,
+  confidenceThreshold: 0.75, // Higher threshold for better accuracy
   model: "gpt-4o"     // Use GPT-4o for optimal performance
 };
 
 /**
- * Check if a title is too generic for price suggestions
- * @param {string} title - Product title to analyze
- * @returns {boolean} - True if title is too generic
+ * STAGE 3: RELEVANCE CHECK WITH AI
+ * Enhanced AI filtering to solve semantic understanding, synonyms, brand intelligence, etc.
  */
-function isTitleTooGeneric(title) {
-  if (!title || typeof title !== 'string') return true;
+async function checkRelevanceWithAIStage3(stage2Result) {
+  console.log(`\n🤖 STAGE 3: AI RELEVANCE CHECK`);
+  console.log(`   Processing ${stage2Result.items.length} filtered items with AI`);
   
-  const normalizedTitle = title.toLowerCase().trim();
-  const words = normalizedTitle.split(/\s+/).filter(word => word.length > 1);
-  
-  // Single word titles are almost always too generic
-  if (words.length <= 1) return true;
-  
-  // Common generic terms that need more specificity
-  const genericTerms = [
-    'table', 'chair', 'shoe', 'shirt', 'car', 'phone', 'laptop', 'watch',
-    'bag', 'book', 'toy', 'game', 'part', 'kit', 'set', 'tool', 'device'
-  ];
-  
-  // If title is just generic terms without descriptors, it's too generic
-  const hasOnlyGenericTerms = words.every(word => 
-    genericTerms.includes(word) || 
-    ['the', 'a', 'an', 'and', 'or', 'for', 'with'].includes(word)
-  );
-  
-  return hasOnlyGenericTerms;
+  try {
+    // Check if title is too generic first
+    if (isTitleTooGeneric(stage2Result.searchTerm)) {
+      console.log(`   ❌ Search term too generic: "${stage2Result.searchTerm}"`);
+      return {
+        success: false,
+        stage: 3,
+        isGeneric: true,
+        reason: "Product title is too generic. Please add more details like brand, model, or specifications for accurate pricing.",
+        step: "title_analysis",
+        searchTerm: stage2Result.searchTerm,
+        condition: stage2Result.condition
+      };
+    }
+    
+    // Process items in batches for better AI analysis
+    const batchSize = AI_CONFIG.batchSize;
+    const allClassifications = [];
+    
+    for (let i = 0; i < stage2Result.items.length; i += batchSize) {
+      const batch = stage2Result.items.slice(i, i + batchSize);
+      
+      console.log(`   🔄 Processing batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(stage2Result.items.length/batchSize)} (${batch.length} items)`);
+      
+      try {
+        const batchResults = await classifyItemsBatchEnhanced(stage2Result.searchTerm, batch, stage2Result.condition);
+        
+        // Adjust indices for global array
+        const adjustedResults = batchResults.map((result, index) => ({
+          ...result,
+          originalIndex: i + index,
+          batchIndex: Math.floor(i/batchSize) + 1
+        }));
+        
+        allClassifications.push(...adjustedResults);
+        
+        // Small delay between batches
+        if (i + batchSize < stage2Result.items.length) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+      } catch (batchError) {
+        console.error(`   ❌ Batch ${Math.floor(i/batchSize) + 1} failed:`, batchError);
+        // Continue with other batches rather than failing completely
+      }
+    }
+    
+    if (allClassifications.length === 0) {
+      throw new Error('All AI classification batches failed');
+    }
+    
+    // Filter for relevant items with high confidence
+    const relevantItems = allClassifications
+      .filter(result => result.relevant && result.confidence >= AI_CONFIG.confidenceThreshold)
+      .map(result => {
+        const originalItem = stage2Result.items[result.originalIndex];
+        return {
+          ...originalItem,
+          aiClassification: result,
+          stage3Index: result.originalIndex
+        };
+      });
+
+    // Analyze diversity of results
+    const diversityAnalysis = analyzeResultsDiversityEnhanced(allClassifications, stage2Result.items);
+    
+    if (diversityAnalysis.tooGeneric) {
+      console.log(`   ⚠️  Diversity issue: ${diversityAnalysis.reason}`);
+      return {
+        success: false,
+        stage: 3,
+        isGeneric: true,
+        reason: `Search results are too varied. ${diversityAnalysis.reason}. Try being more specific with your product title.`,
+        step: "diversity_analysis",
+        analysis: diversityAnalysis,
+        relevantItems: relevantItems.length > 0 ? relevantItems : null,
+        searchTerm: stage2Result.searchTerm,
+        condition: stage2Result.condition
+      };
+    }
+    
+    if (relevantItems.length === 0) {
+      console.log(`   ❌ No relevant items found after AI filtering`);
+      return {
+        success: false,
+        stage: 3,
+        reason: `No relevant items found. AI analysis showed the search results don't match "${stage2Result.searchTerm}".`,
+        searchTerm: stage2Result.searchTerm,
+        condition: stage2Result.condition,
+        aiAnalysis: {
+          totalItemsAnalyzed: allClassifications.length,
+          relevantFound: 0,
+          averageConfidence: 0
+        }
+      };
+    }
+    
+    const averageConfidence = relevantItems.reduce((sum, item) => 
+      sum + item.aiClassification.confidence, 0) / relevantItems.length;
+    
+    console.log(`   📊 Stage 3 Results:`);
+    console.log(`      - AI analyzed: ${allClassifications.length} items`);
+    console.log(`      - Relevant found: ${relevantItems.length} items`);
+    console.log(`      - Average confidence: ${(averageConfidence * 100).toFixed(1)}%`);
+    console.log(`   ✅ Stage 3 Complete: ${relevantItems.length} relevant items identified by AI`);
+    
+    return {
+      success: true,
+      stage: 3,
+      items: relevantItems,
+      searchTerm: stage2Result.searchTerm,
+      condition: stage2Result.condition,
+      aiAnalysis: {
+        totalItemsAnalyzed: allClassifications.length,
+        relevantFound: relevantItems.length,
+        averageConfidence: averageConfidence,
+        diversityAnalysis,
+        batchesProcessed: Math.ceil(stage2Result.items.length / batchSize)
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ AI Stage 3 failed:', error);
+    throw error;
+  }
 }
 
 /**
- * Create AI prompt for batch item classification
- * @param {string} searchTerm - Original search term
- * @param {Array} items - Array of scraped items to classify
- * @returns {string} - Formatted prompt for OpenAI
+ * Enhanced AI prompt for better semantic understanding and relevance checking
  */
-function createClassificationPrompt(searchTerm, items) {
-  return `Analyze these marketplace items for relevance to the search: "${searchTerm}"
+function createEnhancedClassificationPrompt(searchTerm, items, condition) {
+  return `You are an expert product matching system for an auction platform. Analyze if these marketplace items are ACTUALLY relevant to what someone searching for "${searchTerm}" (condition: ${condition}) would want to buy.
 
-For each item, determine if it matches what someone searching for "${searchTerm}" would actually want to buy.
+🎯 SEARCH INTENT: "${searchTerm}" in ${condition} condition
 
-Consider these universal rules:
-1. MAIN_PRODUCT: The actual item being searched for
-2. ACCESSORY: Cases, covers, parts, attachments, add-ons for the main product
-3. DIFFERENT_MODEL: Similar but different version/generation/variant of the product
-4. UNRELATED: Completely different product category
+🧠 ENHANCED MATCHING RULES:
 
-Examples of what to REJECT:
-- Phone cases when searching for phones
-- Screen protectors when searching for tablets  
-- Car parts when searching for whole cars
-- Book covers when searching for books
-- Clothing accessories when searching for clothing items
-- Different generations unless very similar (iPhone 12 vs iPhone 13)
-- Different sizes/models unless very similar
+1. SEMANTIC UNDERSTANDING:
+   - "iPhone 13 Pro" = "Apple Phone 13 Professional" = "Apple iPhone 13 Pro"
+   - Understand product names regardless of exact wording
+   
+2. BRAND INTELLIGENCE:
+   - MacBook = Apple laptop, iPad = Apple tablet
+   - Galaxy = Samsung, Pixel = Google, Surface = Microsoft
+   - Connect products to their correct brands automatically
+   
+3. VERSION/MODEL AWARENESS:
+   - iPhone 13 ≠ iPhone 13 Pro ≠ iPhone 13 Pro Max (different models)
+   - iPhone 12 ≠ iPhone 13 (different generations)
+   - Be strict about model/version differences
+   
+4. SYNONYM RECOGNITION:
+   - laptop = notebook = computer
+   - car = vehicle = automobile
+   - phone = smartphone = mobile
+   
+5. CONDITION MATCHING:
+   - ${condition} condition must match or be compatible
+   - "refurbished" ≈ "used" but "new" ≠ "used"
+   - "open box" ≈ "new" condition
 
-Items to analyze:
+6. ACCESSORY FILTERING:
+   - REJECT: cases, covers, screen protectors, chargers, parts
+   - REJECT: accessories that go WITH the product, not the product itself
+   - ONLY ACCEPT: the actual product being searched for
+
+🔍 ITEMS TO ANALYZE:
 ${items.map((item, index) => 
-  `${index + 1}. "${item.title}" - $${item.price}\n   Description: ${item.description || 'N/A'}`
+  `${index + 1}. "${item.title}" - $${item.price} [${item.condition}]
+   Description: ${item.description || 'N/A'}`
 ).join('\n')}
 
-Return JSON array with exactly this format:
+📋 CLASSIFICATION CATEGORIES:
+- EXACT_MATCH: Perfect match (same product, brand, model)
+- SEMANTIC_MATCH: Same product with different wording
+- COMPATIBLE_MODEL: Very similar model/variant of the same product
+- DIFFERENT_MODEL: Same brand/category but different model/generation
+- ACCESSORY: Cases, parts, accessories FOR the product
+- UNRELATED: Completely different product
+
+🎯 CONFIDENCE LEVELS:
+- 0.95-1.0: Perfect match, exactly what user wants
+- 0.85-0.94: Very good match, slight wording differences
+- 0.75-0.84: Good match, compatible variant
+- 0.65-0.74: Questionable match, might be relevant
+- Below 0.65: Not relevant
+
+Return JSON array:
 [
   {
     "itemIndex": 1,
     "relevant": true,
     "confidence": 0.95,
-    "category": "main_product",
-    "reasoning": "exact match for the searched product"
+    "category": "exact_match",
+    "reasoning": "Perfect match for iPhone 13 Pro",
+    "semanticMatches": ["iPhone", "13", "Pro"],
+    "brandDetected": "Apple",
+    "versionMatch": true,
+    "conditionCompatible": true
   }
 ]
 
-Important: Only return the JSON array, no additional text.`;
+CRITICAL: Only return the JSON array, no additional text.`;
 }
 
 /**
- * Classify a batch of items using OpenAI
- * @param {string} searchTerm - Original search term
- * @param {Array} items - Array of items to classify
- * @returns {Promise<Array>} - Array of classification results
+ * Enhanced batch classification with improved AI analysis
  */
-async function classifyItemsBatch(searchTerm, items) {
+async function classifyItemsBatchEnhanced(searchTerm, items, condition) {
   try {
-    const prompt = createClassificationPrompt(searchTerm, items);
+    const prompt = createEnhancedClassificationPrompt(searchTerm, items, condition);
     
-    console.log(`🤖 AI: Classifying ${items.length} items for "${searchTerm}"`);
+    console.log(`      🤖 AI analyzing ${items.length} items for semantic relevance...`);
     
     const response = await openai.chat.completions.create({
       model: AI_CONFIG.model,
       messages: [{ role: "user", content: prompt }],
-      temperature: 0.1, // Low temperature for consistent classification
-      max_tokens: 2000,
+      temperature: 0.1, // Very low temperature for consistent analysis
+      max_tokens: 3000,
     });
 
     const content = response.choices[0].message.content.trim();
@@ -123,29 +259,61 @@ async function classifyItemsBatch(searchTerm, items) {
       throw new Error('Invalid classification format');
     }
     
-    console.log(`✅ AI: Successfully classified ${classifications.length} items`);
-    return classifications;
+    // Enhance classifications with additional metadata
+    const enhancedClassifications = classifications.map(result => ({
+      ...result,
+      timestamp: new Date().toISOString(),
+      model: AI_CONFIG.model,
+      enhanced: true
+    }));
+    
+    console.log(`      ✅ AI classified ${enhancedClassifications.length} items successfully`);
+    return enhancedClassifications;
     
   } catch (error) {
-    console.error('❌ AI: Error in batch classification:', error);
+    console.error('      ❌ AI batch classification failed:', error);
     throw error;
   }
 }
 
 /**
- * Analyze if scraped results are too diverse/generic
- * @param {Array} classificationResults - Results from AI classification
- * @param {Array} originalItems - Original scraped items
- * @returns {Object} - Analysis results
+ * Check if a title is too generic for price suggestions
  */
-function analyzeResultsDiversity(classificationResults, originalItems) {
+function isTitleTooGeneric(title) {
+  if (!title || typeof title !== 'string') return true;
+  
+  const normalizedTitle = title.toLowerCase().trim();
+  const words = normalizedTitle.split(/\s+/).filter(word => word.length > 1);
+  
+  // Single word titles are almost always too generic
+  if (words.length <= 1) return true;
+  
+  // Common generic terms that need more specificity
+  const genericTerms = [
+    'table', 'chair', 'shoe', 'shirt', 'car', 'phone', 'laptop', 'watch',
+    'bag', 'book', 'toy', 'game', 'part', 'kit', 'set', 'tool', 'device',
+    'computer', 'tablet', 'camera', 'headphones', 'speaker', 'mouse'
+  ];
+  
+  // If title is mostly generic terms without specific descriptors
+  const genericCount = words.filter(word => genericTerms.includes(word)).length;
+  const specificityRatio = (words.length - genericCount) / words.length;
+  
+  // Need at least 60% non-generic words for specific search
+  return specificityRatio < 0.6;
+}
+
+/**
+ * Enhanced diversity analysis for better generic detection
+ */
+function analyzeResultsDiversityEnhanced(classificationResults, originalItems) {
   const relevantItems = classificationResults.filter(result => result.relevant);
   const totalItems = classificationResults.length;
   
   if (relevantItems.length === 0) {
     return {
       tooGeneric: true,
-      reason: "No relevant items found",
+      reason: "No relevant items found by AI analysis",
       relevantCount: 0,
       totalCount: totalItems
     };
@@ -154,20 +322,34 @@ function analyzeResultsDiversity(classificationResults, originalItems) {
   // Calculate relevance ratio
   const relevanceRatio = relevantItems.length / totalItems;
   
-  // If less than 20% of items are relevant, results are too diverse
-  if (relevanceRatio < 0.2) {
+  // If less than 25% of items are relevant, results are too diverse
+  if (relevanceRatio < 0.25) {
     return {
       tooGeneric: true,
-      reason: `Only ${Math.round(relevanceRatio * 100)}% of results are relevant`,
+      reason: `Only ${Math.round(relevanceRatio * 100)}% of results are relevant to the search`,
       relevantCount: relevantItems.length,
-      totalCount: totalItems
+      totalCount: totalItems,
+      relevanceRatio
+    };
+  }
+  
+  // Analyze category diversity - if too many different categories, it's generic
+  const categories = relevantItems.map(item => item.category);
+  const uniqueCategories = [...new Set(categories)];
+  
+  if (uniqueCategories.length > 3 && relevantItems.length > 10) {
+    return {
+      tooGeneric: true,
+      reason: `Results span too many different product categories (${uniqueCategories.length} categories)`,
+      relevantCount: relevantItems.length,
+      totalCount: totalItems,
+      categoryDiversity: uniqueCategories.length
     };
   }
   
   // Calculate price variance for relevant items
   const relevantPrices = relevantItems.map(result => {
-    const itemIndex = result.itemIndex - 1;
-    return originalItems[itemIndex]?.price;
+    return originalItems[result.originalIndex || result.itemIndex - 1]?.price;
   }).filter(price => price && !isNaN(price));
   
   if (relevantPrices.length > 1) {
@@ -176,10 +358,10 @@ function analyzeResultsDiversity(classificationResults, originalItems) {
     const priceVariance = maxPrice / minPrice;
     
     // If price variance is too high, results might be too diverse
-    if (priceVariance > 10) {
+    if (priceVariance > 15) { // Slightly more lenient for AI-filtered results
       return {
         tooGeneric: true,
-        reason: `Price range too wide ($${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)})`,
+        reason: `Price range too wide ($${minPrice.toFixed(2)} - $${maxPrice.toFixed(2)}) indicating diverse product types`,
         relevantCount: relevantItems.length,
         totalCount: totalItems,
         priceVariance
@@ -187,120 +369,98 @@ function analyzeResultsDiversity(classificationResults, originalItems) {
     }
   }
   
+  // Check confidence spread - if confidences vary too much, search might be ambiguous
+  const confidences = relevantItems.map(item => item.confidence);
+  const avgConfidence = confidences.reduce((sum, conf) => sum + conf, 0) / confidences.length;
+  
+  if (avgConfidence < 0.8) {
+    return {
+      tooGeneric: true,
+      reason: `AI confidence too low (${(avgConfidence * 100).toFixed(1)}%) indicating ambiguous search results`,
+      relevantCount: relevantItems.length,
+      totalCount: totalItems,
+      averageConfidence: avgConfidence
+    };
+  }
+  
   return {
     tooGeneric: false,
     relevantCount: relevantItems.length,
     totalCount: totalItems,
-    relevanceRatio
+    relevanceRatio,
+    categoryDiversity: uniqueCategories.length,
+    averageConfidence: avgConfidence
   };
 }
 
 /**
- * Main function to classify items with AI and handle genericity
- * @param {string} searchTerm - Original search term
- * @param {Array} scrapedItems - Array of scraped items
- * @returns {Promise<Object>} - Classification results or genericity error
+ * Fallback to traditional string matching if AI fails
  */
-async function classifyItemsWithAI(searchTerm, scrapedItems) {
-  try {
-    // Step 1: Check if title is too generic
-    if (isTitleTooGeneric(searchTerm)) {
-      return {
-        success: false,
-        isGeneric: true,
-        reason: "Product title is too generic. Please add more details like brand, model, or specifications for accurate pricing.",
-        step: "title_analysis"
-      };
+function checkRelevanceTraditional(searchTerm, items) {
+  console.log(`   🔄 Using traditional string matching as fallback`);
+  
+  const relevantItems = items.filter(item => {
+    const normalizedOriginal = searchTerm.toLowerCase().trim();
+    const normalizedTitle = item.title.toLowerCase().trim();
+    const normalizedDesc = (item.description || '').toLowerCase().trim();
+    
+    // Split search terms and check if they appear in the title or description
+    const searchTerms = normalizedOriginal.split(/\s+/);
+    const matchCount = searchTerms.filter(term => 
+      normalizedTitle.includes(term) || normalizedDesc.includes(term)
+    ).length;
+    
+    // Consider it relevant if at least 50% of search terms are found
+    return matchCount >= Math.ceil(searchTerms.length * 0.5);
+  });
+  
+  return {
+    success: true,
+    stage: 3,
+    items: relevantItems.map((item, index) => ({
+      ...item,
+      stage3Index: index,
+      traditionalMatch: true
+    })),
+    fallbackUsed: true,
+    aiAnalysis: {
+      method: 'traditional_fallback',
+      totalItemsAnalyzed: items.length,
+      relevantFound: relevantItems.length
     }
-    
-    // Step 2: Process items in batches
-    const batchSize = AI_CONFIG.batchSize;
-    const allClassifications = [];
-    
-    for (let i = 0; i < scrapedItems.length; i += batchSize) {
-      const batch = scrapedItems.slice(i, i + batchSize);
-      
-      // Adjust item indices for this batch
-      const batchWithIndices = batch.map((item, batchIndex) => ({
-        ...item,
-        originalIndex: i + batchIndex
-      }));
-      
-      try {
-        const batchResults = await classifyItemsBatch(searchTerm, batchWithIndices);
-        
-        // Adjust indices back to original array
-        const adjustedResults = batchResults.map(result => ({
-          ...result,
-          itemIndex: result.itemIndex + i
-        }));
-        
-        allClassifications.push(...adjustedResults);
-        
-        // Small delay between batches to be respectful to API
-        if (i + batchSize < scrapedItems.length) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        
-      } catch (batchError) {
-        console.error(`❌ AI: Batch ${i}-${i + batchSize} failed:`, batchError);
-        // Continue with other batches
-      }
-    }
-    
-    if (allClassifications.length === 0) {
-      throw new Error('All AI classification batches failed');
-    }
-    
-    // Step 3: Get relevant items first, then analyze diversity
-    const relevantItems = allClassifications
-      .filter(result => result.relevant && result.confidence >= AI_CONFIG.confidenceThreshold)
-      .map(result => {
-        const itemIndex = result.itemIndex - 1;
-        return {
-          ...scrapedItems[itemIndex],
-          aiClassification: result
-        };
-      });
-
-    // Step 4: Analyze diversity of results
-    const diversityAnalysis = analyzeResultsDiversity(allClassifications, scrapedItems);
-    
-    if (diversityAnalysis.tooGeneric) {
-      return {
-        success: false,
-        isGeneric: true,
-        reason: `Search results are too varied. ${diversityAnalysis.reason}. Try being more specific with your product title.`,
-        step: "diversity_analysis",
-        analysis: diversityAnalysis,
-        relevantItems: relevantItems // Include the relevant items even when diversity fails
-      };
-    }
-    
-    // Step 5: Return successful classification
-    console.log(`🎯 AI: Filtered ${scrapedItems.length} → ${relevantItems.length} relevant items`);
-    
-    return {
-      success: true,
-      relevantItems,
-      totalProcessed: scrapedItems.length,
-      aiAnalysis: {
-        totalItemsAnalyzed: allClassifications.length,
-        relevantFound: relevantItems.length,
-        averageConfidence: relevantItems.reduce((sum, item) => 
-          sum + item.aiClassification.confidence, 0) / relevantItems.length,
-        diversityAnalysis
-      }
-    };
-    
-  } catch (error) {
-    console.error('❌ AI: Classification failed:', error);
-    throw error;
-  }
+  };
 }
 
 module.exports = {
-  classifyItemsWithAI,
+  checkRelevanceWithAIStage3,
+  classifyItemsBatchEnhanced,
   isTitleTooGeneric,
-  AI_CONFIG
+  analyzeResultsDiversityEnhanced,
+  checkRelevanceTraditional,
+  // Backwards compatibility
+  classifyItemsWithAI: async (searchTerm, scrapedItems) => {
+    // Convert old format to new stage format
+    const stage2Result = {
+      items: scrapedItems,
+      searchTerm,
+      condition: 'USED' // Default for backwards compatibility
+    };
+    
+    const result = await checkRelevanceWithAIStage3(stage2Result);
+    
+    if (!result.success) {
+      return {
+        success: false,
+        isGeneric: result.isGeneric,
+        reason: result.reason,
+        step: result.step
+      };
+    }
+    
+    return {
+      success: true,
+      relevantItems: result.items,
+      aiAnalysis: result.aiAnalysis
+    };
+  }
 }; 

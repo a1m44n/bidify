@@ -1,8 +1,10 @@
 const express = require('express');
-const { getPriceSuggestion, getDebugScrapedData } = require('../controllers/suggestionCtr');
+const { getPriceSuggestion, getDebugScrapedData, getSystemHealth } = require('../controllers/suggestionCtr');
 const router = express.Router();
 
+// Main endpoints
 router.get("/price", getPriceSuggestion);
-router.get("/debug-scrape", getDebugScrapedData);
+router.get("/debug", getDebugScrapedData);
+router.get("/health", getSystemHealth);
 
 module.exports = router; 

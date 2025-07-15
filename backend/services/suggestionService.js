@@ -1,5 +1,6 @@
 const axios = require('axios');
 const OpenAI = require('openai');
+const scrapingService = require('./scrapingService');
 const aiFilteringService = require('./aiFilteringService');
 
 // Configure OpenAI with new syntax
@@ -7,7 +8,229 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Generate expanded keywords for better search results
+/**
+ * FIVE-STAGE PRICE SUGGESTION ORCHESTRATOR
+ * 
+ * This is the main orchestrator that runs all 5 stages in sequence:
+ * Stage 1: Initial Scrape - Raw data extraction from eBay
+ * Stage 2: Initial Filtering - Remove invalid items  
+ * Stage 3: AI Relevance Check - Enhanced semantic filtering
+ * Stage 4: Outlier Removal - Statistical price cleaning
+ * Stage 5: Final Calculation - Price recommendation
+ */
+async function generatePriceSuggestionFiveStage(productTitle, category, condition, useAI = true) {
+  console.log(`\n🚀 STARTING 5-STAGE PRICE SUGGESTION PROCESS`);
+  console.log(`   Product: "${productTitle}"`);
+  console.log(`   Category: ${category || 'Not specified'}`);
+  console.log(`   Condition: ${condition}`);
+  console.log(`   AI Enabled: ${useAI}`);
+  console.log(`   ═══════════════════════════════════════════════════════`);
+  
+  const startTime = Date.now();
+  
+  try {
+    // STAGE 1: INITIAL SCRAPE
+    console.log(`\n📍 STAGE 1/5: INITIAL SCRAPE`);
+    const stage1Result = await scrapingService.scrapeEbayStage1(productTitle, condition);
+    
+    if (!stage1Result.success || stage1Result.items.length === 0) {
+      return {
+        success: false,
+        stage: 1,
+        error: stage1Result.error || `No items found for "${productTitle}" in ${condition} condition`,
+        processingTime: Date.now() - startTime,
+        stageResults: { stage1: stage1Result }
+      };
+    }
+    
+    // STAGE 2: INITIAL FILTERING
+    console.log(`\n📍 STAGE 2/5: INITIAL FILTERING`);
+    const stage2Result = scrapingService.filterItemsStage2(stage1Result);
+    
+    if (!stage2Result.success || stage2Result.items.length === 0) {
+      return {
+        success: false,
+        stage: 2,
+        error: `No valid items remaining after initial filtering`,
+        processingTime: Date.now() - startTime,
+        stageResults: { stage1: stage1Result, stage2: stage2Result }
+      };
+    }
+    
+    // STAGE 3: RELEVANCE CHECK (AI or Traditional)
+    console.log(`\n📍 STAGE 3/5: RELEVANCE CHECK`);
+    let stage3Result;
+    
+    if (useAI) {
+      try {
+        stage3Result = await aiFilteringService.checkRelevanceWithAIStage3(stage2Result);
+      } catch (aiError) {
+        console.error('   ❌ AI failed, falling back to traditional method:', aiError);
+        stage3Result = aiFilteringService.checkRelevanceTraditional(stage2Result.searchTerm, stage2Result.items);
+        stage3Result.searchTerm = stage2Result.searchTerm;
+        stage3Result.condition = stage2Result.condition;
+      }
+    } else {
+      stage3Result = aiFilteringService.checkRelevanceTraditional(stage2Result.searchTerm, stage2Result.items);
+      stage3Result.searchTerm = stage2Result.searchTerm;
+      stage3Result.condition = stage2Result.condition;
+    }
+    
+    // Handle various Stage 3 failure cases
+    if (!stage3Result.success) {
+      const processingTime = Date.now() - startTime;
+      
+      // Generic/diverse results - return with filtered items if available
+      if (stage3Result.isGeneric && stage3Result.relevantItems && stage3Result.relevantItems.length > 0) {
+        return {
+          success: false,
+          stage: 3,
+          isGeneric: true,
+          reason: stage3Result.reason,
+          step: stage3Result.step,
+          totalItemsScraped: stage1Result.items.length,
+          similarItems: stage3Result.relevantItems.slice(0, 15).map(formatItemForResponse),
+          diversityInfo: stage3Result.analysis,
+          showFilteredList: true,
+          processingTime,
+          stageResults: { stage1: stage1Result, stage2: stage2Result, stage3: stage3Result }
+        };
+      }
+      
+      // No relevant items or other failures
+      return {
+        success: false,
+        stage: 3,
+        isGeneric: stage3Result.isGeneric || false,
+        reason: stage3Result.reason,
+        step: stage3Result.step,
+        totalItemsScraped: stage1Result.items.length,
+        processingTime,
+        stageResults: { stage1: stage1Result, stage2: stage2Result, stage3: stage3Result }
+      };
+    }
+    
+    if (stage3Result.items.length === 0) {
+      return {
+        success: false,
+        stage: 3,
+        error: `No relevant items found after relevance filtering`,
+        processingTime: Date.now() - startTime,
+        stageResults: { stage1: stage1Result, stage2: stage2Result, stage3: stage3Result }
+      };
+    }
+    
+    // STAGE 4: OUTLIER REMOVAL
+    console.log(`\n📍 STAGE 4/5: OUTLIER REMOVAL`);
+    const stage4Result = scrapingService.removeOutliersStage4(stage3Result);
+    
+    if (!stage4Result.success || stage4Result.items.length === 0) {
+      return {
+        success: false,
+        stage: 4,
+        error: `No items remaining after outlier removal`,
+        processingTime: Date.now() - startTime,
+        stageResults: { stage1: stage1Result, stage2: stage2Result, stage3: stage3Result, stage4: stage4Result }
+      };
+    }
+    
+    // STAGE 5: FINAL CALCULATION
+    console.log(`\n📍 STAGE 5/5: FINAL CALCULATION`);
+    const stage5Result = scrapingService.calculateFinalPriceStage5(stage4Result);
+    
+    if (!stage5Result.success) {
+      return {
+        success: false,
+        stage: 5,
+        error: stage5Result.error,
+        processingTime: Date.now() - startTime,
+        stageResults: { stage1: stage1Result, stage2: stage2Result, stage3: stage3Result, stage4: stage4Result, stage5: stage5Result }
+      };
+    }
+    
+    // SUCCESS - All stages completed
+    const processingTime = Date.now() - startTime;
+    
+    console.log(`\n🎉 5-STAGE PROCESS COMPLETED SUCCESSFULLY`);
+    console.log(`   Processing time: ${processingTime}ms`);
+    console.log(`   Final recommendation: $${stage5Result.calculation.recommendedBid}`);
+    console.log(`   Based on ${stage5Result.items.length} relevant items`);
+    console.log(`   ═══════════════════════════════════════════════════════`);
+    
+    return {
+      success: true,
+      suggestion: {
+        ...stage5Result.calculation,
+        condition: stage5Result.condition,
+        sources: stage5Result.items.length,
+        items: stage5Result.items.slice(0, 10).map(formatItemForResponse),
+        generatedAt: new Date().toISOString(),
+        processingTime,
+        fiveStageAnalysis: {
+          stage1: {
+            itemsScraped: stage1Result.items.length,
+            success: stage1Result.success
+          },
+          stage2: {
+            itemsAfterFiltering: stage2Result.items.length,
+            itemsRemoved: stage1Result.items.length - stage2Result.items.length,
+            removedCount: stage2Result.removedCount
+          },
+          stage3: {
+            method: useAI ? (stage3Result.fallbackUsed ? 'ai_with_fallback' : 'ai') : 'traditional',
+            itemsAfterRelevance: stage3Result.items.length,
+            itemsRemoved: stage2Result.items.length - stage3Result.items.length,
+            ...(stage3Result.aiAnalysis && { aiAnalysis: stage3Result.aiAnalysis })
+          },
+          stage4: {
+            itemsAfterOutliers: stage4Result.items.length,
+            itemsRemoved: stage3Result.items.length - stage4Result.items.length,
+            outlierInfo: stage4Result.outlierInfo
+          },
+          stage5: {
+            finalItemCount: stage5Result.items.length,
+            calculation: stage5Result.calculation
+          }
+        }
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ 5-Stage process failed:', error);
+    return {
+      success: false,
+      stage: 'unknown',
+      error: `Price suggestion process failed: ${error.message}`,
+      processingTime: Date.now() - startTime
+    };
+  }
+}
+
+/**
+ * Format item for API response
+ */
+function formatItemForResponse(item) {
+  return {
+    title: item.title,
+    price: item.price,
+    source: item.source,
+    condition: item.condition,
+    url: item.url,
+    ...(item.aiClassification && { 
+      aiConfidence: item.aiClassification.confidence,
+      aiCategory: item.aiClassification.category,
+      aiReasoning: item.aiClassification.reasoning
+    }),
+    ...(item.traditionalMatch && { traditionalMatch: true })
+  };
+}
+
+/**
+ * LEGACY SUPPORT FUNCTIONS
+ * These maintain backwards compatibility with existing code
+ */
+
+// Generate expanded keywords for better search results (legacy)
 async function generateExpandedKeywords(productTitle, category) {
   try {
     const prompt = `
@@ -34,29 +257,7 @@ Example: ["keyword1", "keyword2", ...]
   }
 }
 
-// Clean price data by removing outliers
-function cleanPriceOutliers(prices) {
-  if (prices.length <= 2) return prices;
-  
-  // Sort prices
-  const sortedPrices = [...prices].sort((a, b) => a - b);
-  
-  // Calculate Q1, Q3, and IQR
-  const q1Index = Math.floor(sortedPrices.length * 0.25);
-  const q3Index = Math.floor(sortedPrices.length * 0.75);
-  const q1 = sortedPrices[q1Index];
-  const q3 = sortedPrices[q3Index];
-  const iqr = q3 - q1;
-  
-  // Define outlier boundaries (1.5 * IQR)
-  const lowerBound = q1 - 1.5 * iqr;
-  const upperBound = q3 + 1.5 * iqr;
-  
-  // Filter out outliers
-  return prices.filter(price => price >= lowerBound && price <= upperBound);
-}
-
-// Check if a scraped item is relevant to the original search using simple string matching
+// Traditional relevance checking (legacy)
 function checkRelevance(originalItem, scrapedItemTitle, scrapedItemDescription = "") {
   const normalizedOriginal = originalItem.toLowerCase().trim();
   const normalizedTitle = scrapedItemTitle.toLowerCase().trim();
@@ -72,43 +273,40 @@ function checkRelevance(originalItem, scrapedItemTitle, scrapedItemDescription =
   return matchCount >= Math.ceil(searchTerms.length * 0.5);
 }
 
-/**
- * Enhanced relevance checking using AI
- * @param {string} searchTerm - Original search term
- * @param {Array} scrapedItems - Array of scraped items to filter
- * @returns {Promise<Object>} - Object containing relevant items or error information
- */
+// AI relevance checking (legacy wrapper)
 async function checkRelevanceWithAI(searchTerm, scrapedItems) {
   try {
-    console.log(`🤖 Starting AI relevance check for "${searchTerm}" with ${scrapedItems.length} items`);
+    console.log(`🔄 Legacy AI wrapper called for "${searchTerm}" with ${scrapedItems.length} items`);
     
-    // Use AI filtering service to classify items
-    const aiResult = await aiFilteringService.classifyItemsWithAI(searchTerm, scrapedItems);
+    // Convert to new stage format
+    const stage2Result = {
+      items: scrapedItems,
+      searchTerm,
+      condition: 'USED' // Default for legacy calls
+    };
     
-    if (!aiResult.success) {
-      // Check if it's a diversity issue - if so, try to get the relevant items anyway
-      if (aiResult.step === "diversity_analysis" && aiResult.relevantItems && aiResult.relevantItems.length > 0) {
-        // We have relevant items but diversity issues - return them for display without price calculations
-        console.log(`🔄 Diversity issue detected, but ${aiResult.relevantItems.length} relevant items found`);
-        
+    const result = await aiFilteringService.checkRelevanceWithAIStage3(stage2Result);
+    
+    if (!result.success) {
+      // Handle various failure cases for legacy compatibility
+      if (result.isGeneric && result.relevantItems && result.relevantItems.length > 0) {
         return {
           success: false,
-          isGeneric: aiResult.isGeneric,
-          reason: aiResult.reason,
-          step: aiResult.step,
+          isGeneric: result.isGeneric,
+          reason: result.reason,
+          step: result.step,
           fallbackUsed: false,
           hasRelevantItems: true,
-          relevantItems: aiResult.relevantItems,
-          analysis: aiResult.analysis
+          relevantItems: result.relevantItems,
+          analysis: result.analysis
         };
       }
       
-      // Return error information for generic items (no relevant items case)
       return {
         success: false,
-        isGeneric: aiResult.isGeneric,
-        reason: aiResult.reason,
-        step: aiResult.step,
+        isGeneric: result.isGeneric,
+        reason: result.reason,
+        step: result.step,
         fallbackUsed: false
       };
     }
@@ -116,13 +314,13 @@ async function checkRelevanceWithAI(searchTerm, scrapedItems) {
     // Return successful AI filtering results
     return {
       success: true,
-      relevantItems: aiResult.relevantItems,
-      aiAnalysis: aiResult.aiAnalysis,
+      relevantItems: result.items,
+      aiAnalysis: result.aiAnalysis,
       fallbackUsed: false
     };
     
   } catch (error) {
-    console.error('❌ AI relevance check failed, falling back to traditional method:', error);
+    console.error('❌ Legacy AI relevance check failed, falling back to traditional method:', error);
     
     // Fallback to traditional string matching
     const relevantItems = scrapedItems.filter(item => 
@@ -143,7 +341,12 @@ async function checkRelevanceWithAI(searchTerm, scrapedItems) {
   }
 }
 
-// Calculate recommended bid based on cleaned data
+// Clean price data by removing outliers (legacy)
+function cleanPriceOutliers(prices) {
+  return scrapingService.cleanPriceOutliers(prices);
+}
+
+// Calculate recommended bid based on cleaned data (legacy)
 function calculateRecommendedBid(productTitle, category, prices, itemCondition = "New") {
   // Clean outliers
   const cleanedPrices = cleanPriceOutliers(prices);
@@ -174,6 +377,11 @@ function calculateRecommendedBid(productTitle, category, prices, itemCondition =
 }
 
 module.exports = {
+  // NEW 5-STAGE SYSTEM
+  generatePriceSuggestionFiveStage,
+  formatItemForResponse,
+  
+  // LEGACY SUPPORT (for backwards compatibility)
   generateExpandedKeywords,
   checkRelevance,
   checkRelevanceWithAI,
