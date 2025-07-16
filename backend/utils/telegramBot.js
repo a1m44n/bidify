@@ -6,6 +6,14 @@ const axios = require('axios');
 class TelegramBot {
     constructor() {
         this.token = process.env.TELEGRAM_BOT_TOKEN;
+        
+        // Validate token exists and has basic format
+        if (!this.token) {
+            console.warn('⚠️  TELEGRAM_BOT_TOKEN is not set. Telegram notifications will be disabled.');
+        } else if (!this.token.match(/^\d+:[A-Za-z0-9_-]+$/)) {
+            console.warn('⚠️  TELEGRAM_BOT_TOKEN format appears invalid. Expected format: "123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"');
+        }
+        
         this.apiUrl = `https://api.telegram.org/bot${this.token}`;
     }
 
@@ -36,8 +44,13 @@ class TelegramBot {
      */
     async sendMessage(chatId, text) {
         try {
-            if (!chatId || !this.token) {
-                return { success: false, message: 'Missing chat ID or token' };
+            if (!this.token) {
+                console.warn('Telegram bot token not configured, skipping notification');
+                return { success: false, error: 'Telegram bot token not configured' };
+            }
+            
+            if (!chatId) {
+                return { success: false, error: 'Missing chat ID' };
             }
 
             const response = await axios.post(`${this.apiUrl}/sendMessage`, {

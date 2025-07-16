@@ -54,6 +54,9 @@ Update `client/.env` with your actual values:
 ```env
 # Frontend Environment Variables
 VITE_API_URL=https://your-app-name.ondigitalocean.app/api
+
+# Optional: Telegram Bot Username (for user instructions)
+VITE_TELEGRAM_BOT_USERNAME=@Bidify_Bot
 ```
 
 ### Step 2: Push to GitHub

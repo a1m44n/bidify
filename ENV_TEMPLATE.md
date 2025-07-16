@@ -43,6 +43,9 @@ Create `client/.env` file with:
 ```env
 # Frontend Environment Variables
 VITE_API_URL=https://your-app-name.ondigitalocean.app/api
+
+# Optional: Telegram Bot Username (for user instructions)
+VITE_TELEGRAM_BOT_USERNAME=your-bot-username
 ```
 
 ## Notes

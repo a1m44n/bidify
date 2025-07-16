@@ -35,9 +35,18 @@ class NotificationService {
                 recipient.notificationPreferences?.telegram?.enabled &&
                 recipient.notificationPreferences?.telegram?.notifyOnOutbid) {
                 
-                // Send Telegram notification
-                const telegramMessage = telegramBot.createOutbidMessage(product, price, bidder.username);
-                await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                try {
+                    // Send Telegram notification
+                    const telegramMessage = telegramBot.createOutbidMessage(product, price, bidder.username);
+                    const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                    
+                    if (!result.success) {
+                        console.warn(`Failed to send telegram outbid notification to user ${recipientId}:`, result.error);
+                    }
+                } catch (telegramError) {
+                    console.error(`Error sending telegram outbid notification to user ${recipientId}:`, telegramError.message);
+                    // Don't throw - allow the bidding process to continue
+                }
             }
 
             return message;
@@ -75,12 +84,21 @@ class NotificationService {
                 recipient.notificationPreferences?.telegram?.enabled &&
                 recipient.notificationPreferences?.telegram?.notifyOnWin) {
                 
-                // Fetch seller information for contact details
-                const seller = await User.findById(product.user, "username telegramHandle");
-                
-                // Send Telegram notification
-                const telegramMessage = telegramBot.createAuctionWinMessage(product, winningBid, seller);
-                await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                try {
+                    // Fetch seller information for contact details
+                    const seller = await User.findById(product.user, "username telegramHandle");
+                    
+                    // Send Telegram notification
+                    const telegramMessage = telegramBot.createAuctionWinMessage(product, winningBid, seller);
+                    const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                    
+                    if (!result.success) {
+                        console.warn(`Failed to send telegram win notification to user ${recipientId}:`, result.error);
+                    }
+                } catch (telegramError) {
+                    console.error(`Error sending telegram win notification to user ${recipientId}:`, telegramError.message);
+                    // Don't throw - allow the auction completion process to continue
+                }
             }
 
             return message;
@@ -116,9 +134,18 @@ class NotificationService {
                 recipient.notificationPreferences?.telegram?.enabled &&
                 recipient.notificationPreferences?.telegram?.notifyOnAuctionEnd) {
                 
-                // Send Telegram notification
-                const telegramMessage = telegramBot.createAuctionEndMessage(product);
-                await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                try {
+                    // Send Telegram notification
+                    const telegramMessage = telegramBot.createAuctionEndMessage(product);
+                    const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                    
+                    if (!result.success) {
+                        console.warn(`Failed to send telegram auction end notification to user ${recipientId}:`, result.error);
+                    }
+                } catch (telegramError) {
+                    console.error(`Error sending telegram auction end notification to user ${recipientId}:`, telegramError.message);
+                    // Don't throw - allow the auction process to continue
+                }
             }
 
             return message;

@@ -83,11 +83,32 @@ mongoose.connect(process.env.DATABASE_CLOUD,{
     useNewUrlParser: true,
     useUnifiedTopology: true,
 }).then(() => {
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
         console.log(`Server Running on port  ${PORT}`);
+        
         // Start the auction monitor service
         auctionMonitorService.start();
         console.log('Auction monitor service started');
+        
+        // Set up Telegram webhook for production
+        if (process.env.NODE_ENV === 'production' && process.env.TELEGRAM_BOT_TOKEN && process.env.SERVER_URL) {
+            try {
+                const telegramBot = require('./utils/telegramBot');
+                const webhookUrl = `${process.env.SERVER_URL}/api/telegram/webhook`;
+                console.log('Setting up Telegram webhook for production...');
+                
+                const result = await telegramBot.setWebhook(webhookUrl);
+                if (result.success) {
+                    console.log('✅ Telegram webhook set up successfully for production!');
+                } else {
+                    console.error('❌ Failed to set up Telegram webhook for production:', result.error);
+                }
+            } catch (error) {
+                console.error('Error setting up Telegram webhook for production:', error.message);
+            }
+        } else if (process.env.NODE_ENV === 'production') {
+            console.warn('⚠️  Production mode detected but Telegram webhook not configured. Check TELEGRAM_BOT_TOKEN and SERVER_URL environment variables.');
+        }
     });
 })
 .catch ((err) => {
