@@ -65,6 +65,8 @@ class NotificationService {
      */
     async sendAuctionWinNotification(product, recipientId, winningBid) {
         try {
+            console.log(`🏆 Sending auction win notification to user ${recipientId} for product "${product.title}"`);
+            
             // Create message for internal notifications
             const message = await Message.create({
                 productId: product._id,
@@ -76,8 +78,22 @@ class NotificationService {
                 winningBid
             });
 
+            console.log(`✅ Internal auction win message created for user ${recipientId}`);
+
             // Check if recipient has Telegram notifications enabled
             const recipient = await User.findById(recipientId);
+            
+            if (!recipient) {
+                console.log(`❌ Recipient ${recipientId} not found in database`);
+                return message;
+            }
+
+            console.log(`📱 Checking telegram settings for user ${recipientId}:`, {
+                telegramChatId: recipient.telegramChatId ? '***set***' : 'NOT SET',
+                telegramEnabled: recipient.notificationPreferences?.telegram?.enabled,
+                notifyOnWin: recipient.notificationPreferences?.telegram?.notifyOnWin,
+                fullPrefs: recipient.notificationPreferences
+            });
             
             if (recipient && 
                 recipient.telegramChatId && 
@@ -85,6 +101,8 @@ class NotificationService {
                 recipient.notificationPreferences?.telegram?.notifyOnWin) {
                 
                 try {
+                    console.log(`🚀 Sending telegram auction win notification to user ${recipientId}`);
+                    
                     // Fetch seller information for contact details
                     const seller = await User.findById(product.user, "username telegramHandle");
                     
@@ -92,13 +110,22 @@ class NotificationService {
                     const telegramMessage = telegramBot.createAuctionWinMessage(product, winningBid, seller);
                     const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
                     
-                    if (!result.success) {
-                        console.warn(`Failed to send telegram win notification to user ${recipientId}:`, result.error);
+                    if (result.success) {
+                        console.log(`✅ Telegram auction win notification sent successfully to user ${recipientId}`);
+                    } else {
+                        console.warn(`⚠️ Failed to send telegram win notification to user ${recipientId}:`, result.error);
                     }
                 } catch (telegramError) {
-                    console.error(`Error sending telegram win notification to user ${recipientId}:`, telegramError.message);
+                    console.error(`❌ Error sending telegram win notification to user ${recipientId}:`, telegramError.message);
                     // Don't throw - allow the auction completion process to continue
                 }
+            } else {
+                console.log(`🚫 Telegram win notification NOT sent to user ${recipientId}. Reason:`, {
+                    hasRecipient: !!recipient,
+                    hasChatId: !!recipient?.telegramChatId,
+                    telegramEnabled: recipient?.notificationPreferences?.telegram?.enabled,
+                    notifyOnWin: recipient?.notificationPreferences?.telegram?.notifyOnWin
+                });
             }
 
             return message;

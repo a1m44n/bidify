@@ -12,6 +12,7 @@ const { estimateIncome } = require("../controllers/userCtr");
 const { updateTelegramSettings } = require("../controllers/userCtr");
 const { getTelegramSettings } = require("../controllers/userCtr");
 const { updateTelegramHandle } = require("../controllers/userCtr");
+const { debugTelegramSettings } = require("../controllers/userCtr");
 const router = express.Router();
 
 router.post("/register", registerUser);
@@ -31,5 +32,8 @@ router.put("/telegram-settings", protect, updateTelegramSettings);
 
 // Telegram handle update
 router.put("/update-telegram-handle", protect, updateTelegramHandle);
+
+// Debug endpoint for telegram settings
+router.get("/debug-telegram-settings", protect, debugTelegramSettings);
 
 module.exports = router; 

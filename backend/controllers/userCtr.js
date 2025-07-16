@@ -344,6 +344,44 @@ const updateTelegramHandle = asyncHandler(async (req, res) => {
     }
 });
 
+// Debug endpoint to check telegram notification preferences
+const debugTelegramSettings = asyncHandler(async (req, res) => {
+    const userId = req.user._id;
+    
+    try {
+        const user = await User.findById(userId);
+        
+        if (!user) {
+            res.status(404);
+            throw new Error("User not found");
+        }
+        
+        // Return detailed debug info
+        res.status(200).json({
+            userId: userId,
+            username: user.username,
+            telegramChatId: user.telegramChatId || "NOT SET",
+            telegramHandle: user.telegramHandle || "NOT SET",
+            notificationPreferences: user.notificationPreferences || "NOT SET",
+            debugInfo: {
+                hasChatId: !!user.telegramChatId,
+                telegramEnabled: user.notificationPreferences?.telegram?.enabled || false,
+                notifyOnOutbid: user.notificationPreferences?.telegram?.notifyOnOutbid || false,
+                notifyOnWin: user.notificationPreferences?.telegram?.notifyOnWin || false,
+                notifyOnAuctionEnd: user.notificationPreferences?.telegram?.notifyOnAuctionEnd || false,
+                allConditionsMet: !!(
+                    user.telegramChatId && 
+                    user.notificationPreferences?.telegram?.enabled &&
+                    user.notificationPreferences?.telegram?.notifyOnWin
+                )
+            }
+        });
+    } catch (error) {
+        res.status(500);
+        throw new Error("Error fetching debug settings: " + error.message);
+    }
+});
+
 module.exports = {
     registerUser,
     loginUser,
@@ -357,5 +395,6 @@ module.exports = {
     estimateIncome,
     updateTelegramSettings,
     getTelegramSettings,
-    updateTelegramHandle
+    updateTelegramHandle,
+    debugTelegramSettings
 }

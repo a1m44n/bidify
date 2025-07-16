@@ -87,8 +87,8 @@ export const Header = () => {
         if (!productId) return;
 
         try {
-            // Set auction to end in 20 seconds from now
-            const newEndTime = new Date(Date.now() + 20000); // current time + 20 seconds
+            // Set auction to end in 5 seconds from now
+            const newEndTime = new Date(Date.now() + 5000); // current time + 5 seconds
             
             await axios.post(
                 `${API_URL}/api/product/update-end-time/${productId}`,
@@ -210,7 +210,7 @@ export const Header = () => {
                                         onClick={handleQuickEnd}
                                         className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 flex items-center gap-2"
                                     >
-                                        <span>⚡</span> Quick End (20s)
+                                        <span>⚡</span> Quick End (5s)
                                     </button>
                                 )}
                                 
