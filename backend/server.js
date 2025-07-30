@@ -92,20 +92,42 @@ mongoose.connect(process.env.DATABASE_CLOUD,{
         
         // Set up Telegram webhook for production
         if (process.env.NODE_ENV === 'production' && process.env.TELEGRAM_BOT_TOKEN && process.env.SERVER_URL) {
-            try {
-                const telegramBot = require('./utils/telegramBot');
-                const webhookUrl = `${process.env.SERVER_URL}/api/telegram/webhook`;
-                console.log('Setting up Telegram webhook for production...');
-                
-                const result = await telegramBot.setWebhook(webhookUrl);
-                if (result.success) {
-                    console.log('✅ Telegram webhook set up successfully for production!');
-                } else {
-                    console.error('❌ Failed to set up Telegram webhook for production:', result.error);
+            const setupWebhook = async (retries = 3) => {
+                for (let attempt = 1; attempt <= retries; attempt++) {
+                    try {
+                        const telegramBot = require('./utils/telegramBot');
+                        const webhookUrl = `${process.env.SERVER_URL}/api/telegram/webhook`;
+                        console.log(`📡 Setting up Telegram webhook (attempt ${attempt}/${retries})...`);
+                        console.log(`🎯 Webhook URL: ${webhookUrl}`);
+                        
+                        const result = await telegramBot.setWebhook(webhookUrl);
+                        if (result.success) {
+                            console.log('✅ Telegram webhook set up successfully for production!');
+                            console.log('🔍 Webhook details:', result.data);
+                            return;
+                        } else {
+                            console.error(`❌ Attempt ${attempt} failed:`, result.error);
+                            if (attempt === retries) {
+                                console.error('💥 All webhook setup attempts failed!');
+                            } else {
+                                console.log(`⏳ Retrying in 5 seconds...`);
+                                await new Promise(resolve => setTimeout(resolve, 5000));
+                            }
+                        }
+                    } catch (error) {
+                        console.error(`💥 Error on attempt ${attempt}:`, error.message);
+                        if (attempt === retries) {
+                            console.error('💀 Fatal: All webhook setup attempts failed!');
+                        } else {
+                            console.log(`⏳ Retrying in 5 seconds...`);
+                            await new Promise(resolve => setTimeout(resolve, 5000));
+                        }
+                    }
                 }
-            } catch (error) {
-                console.error('Error setting up Telegram webhook for production:', error.message);
-            }
+            };
+            
+            // Set up webhook with retry logic
+            setupWebhook();
         } else if (process.env.NODE_ENV === 'production') {
             console.warn('⚠️  Production mode detected but Telegram webhook not configured. Check TELEGRAM_BOT_TOKEN and SERVER_URL environment variables.');
         }
