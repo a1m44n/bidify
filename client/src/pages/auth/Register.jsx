@@ -93,8 +93,8 @@ const Register = () => {
                         </div>
                     )}
                     {success && (
-                        <div className="bg-green-50 border-l-4 border-green-400 text-green-800 px-4 py-3 rounded shadow-sm" role="alert">
-                            <span className="block sm:inline font-medium">{success}</span>
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                            <span className="block sm:inline">{success}</span>
                         </div>
                     )}
                     <div className="rounded-md shadow-sm -space-y-px">
