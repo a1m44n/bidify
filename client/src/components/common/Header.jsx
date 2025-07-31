@@ -139,13 +139,13 @@ export const Header = () => {
                 <Container>
                     <nav className="p-4 flex justify-between items-center relative">
                         <div className="flex items-center gap-14">
-                            {/* <div>
+                            <div>
                                 {isHomePage && !isScrolled ?  (
                                     <img src="../images/common/header-logo.png" alt="LogoImg" className="h-11" />
                                 ) : (
                                   <img src="../images/common/header-logo2.png" alt="LogoImg" className="h-11" />
                                 )}
-                            </div> */}
+                            </div>
 
                             <div className="hidden lg:flex items-center justify-between gap-8">
                                 {isLoggedIn ? (
