@@ -71,7 +71,7 @@ const Register = () => {
             <div className="max-w-md w-full space-y-8">
                 <div className="text-center">
                     <img 
-                        src="/images/common/header-logo.png" 
+                        src="/images/common/header-logo2.png" 
                         alt="Bidify Logo" 
                         className="mx-auto h-16 w-auto mb-4"
                     />
