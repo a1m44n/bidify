@@ -11,6 +11,7 @@ const Login = () => {
         password: ''
     });
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
     const [loading, setLoading] = useState(false);
     const navigate = useNavigate();
 
@@ -25,6 +26,7 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setSuccess('');
         setLoading(true);
 
         // Basic validation
@@ -45,7 +47,12 @@ const Login = () => {
             if (response.status === 201) {
                 setIsLoggedIn(true);
                 setUser(response.data);
-                navigate('/');
+                setSuccess('Login successful! Redirecting...');
+                
+                // Show success message briefly before redirecting
+                setTimeout(() => {
+                    navigate('/');
+                }, 1500);
             }
         } catch (err) {
             setError(err.response?.data?.message || 'Login failed');
@@ -71,6 +78,11 @@ const Login = () => {
                     {error && (
                         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
                             <span className="block sm:inline">{error}</span>
+                        </div>
+                    )}
+                    {success && (
+                        <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative" role="alert">
+                            <span className="block sm:inline">{success}</span>
                         </div>
                     )}
                     <div className="rounded-md shadow-sm -space-y-px">
