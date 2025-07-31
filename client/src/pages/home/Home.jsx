@@ -27,7 +27,7 @@ export const Home = () => {
         <CategorySlider onCategorySelect={handleCategorySelect}/>
         <ProductList selectedCategory={selectedCategory} searchQuery={searchQuery} />
         {/* <TopSeller/> */}
-        <Process/>
+        {/* <Process/> */}
         {/* <Trust/> */}
         {/* <TopCollection/> */}
     </>
