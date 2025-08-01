@@ -2,7 +2,8 @@ import PropTypes from "prop-types";
 import { NavLink, useNavigate } from "react-router-dom";
 import { ProfileCard, Caption, Title, PrimaryButton } from "../common/Design";
 import { RiAuctionFill } from "react-icons/ri";
-import { MdOutlineFavorite, MdOutlineFavoriteBorder } from "react-icons/md"; 
+import { MdOutlineFavorite, MdOutlineFavoriteBorder } from "react-icons/md";
+import { IoMdTime } from "react-icons/io";
 import { useAuth } from "../../context/AuthContext";
 import { useState, useEffect } from "react";
 import axios from "axios";
@@ -20,12 +21,63 @@ export const ProductCard = ({ item, isWatchlisted: initialIsWatchlisted, onRemov
     const navigate = useNavigate();
     const [isWatchlisted, setIsWatchlisted] = useState(initialIsWatchlisted || false);
     const [isLoading, setIsLoading] = useState(false);
+    const [timeLeft, setTimeLeft] = useState({
+        days: 0,
+        hours: 0,
+        minutes: 0,
+        seconds: 0,
+        expired: false
+    });
 
     useEffect(() => {
         if (isLoggedIn && user) {
             checkWatchlistStatus();
         }
     }, [item._id, isLoggedIn, user]);
+
+    // Timer calculation
+    useEffect(() => {
+        if (!item.auctionEndTime) return;
+
+        const calculateTimeLeft = () => {
+            const endTime = new Date(item.auctionEndTime);
+            const now = new Date();
+            const difference = endTime.getTime() - now.getTime();
+
+            if (difference <= 0) {
+                setTimeLeft({
+                    days: 0,
+                    hours: 0,
+                    minutes: 0,
+                    seconds: 0,
+                    expired: true
+                });
+                return;
+            }
+
+            const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+            setTimeLeft({
+                days,
+                hours,
+                minutes,
+                seconds,
+                expired: false
+            });
+        };
+
+        // Calculate initial time
+        calculateTimeLeft();
+
+        // Update every second
+        const timer = setInterval(calculateTimeLeft, 1000);
+
+        // Cleanup
+        return () => clearInterval(timer);
+    }, [item.auctionEndTime]);
 
     const checkWatchlistStatus = async () => {
         try {
@@ -162,6 +214,40 @@ export const ProductCard = ({ item, isWatchlisted: initialIsWatchlisted, onRemov
                             </div>
                         </div>
                         <hr className="mt-3"/>
+                        
+                        {/* Timer Section */}
+                        {item.auctionEndTime && !timeLeft.expired && (
+                            <div className="flex items-center justify-center py-3">
+                                <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg">
+                                    <IoMdTime size={18} className="text-orange-500"/>
+                                    <div className="text-center">
+                                        <Caption className="text-gray-600 text-xs">TIME LEFT</Caption>
+                                        <div className="flex gap-1 text-sm font-medium text-gray-800">
+                                            {timeLeft.days > 0 && (
+                                                <>
+                                                    <span>{timeLeft.days}d</span>
+                                                    <span className="text-gray-400">:</span>
+                                                </>
+                                            )}
+                                            <span>{String(timeLeft.hours).padStart(2, '0')}h</span>
+                                            <span className="text-gray-400">:</span>
+                                            <span>{String(timeLeft.minutes).padStart(2, '0')}m</span>
+                                            <span className="text-gray-400">:</span>
+                                            <span>{String(timeLeft.seconds).padStart(2, '0')}s</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {item.auctionEndTime && timeLeft.expired && (
+                            <div className="flex items-center justify-center py-3">
+                                <div className="flex items-center gap-3 bg-red-50 px-4 py-2 rounded-lg">
+                                    <IoMdTime size={18} className="text-red-500"/>
+                                    <Caption className="text-red-600 font-medium">AUCTION ENDED</Caption>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </NavLink>
 
@@ -205,6 +291,13 @@ ProductCard.propTypes = {
         }),
         isSoldOut: PropTypes.bool,
         isArchived: PropTypes.bool,
+        auctionEndTime: PropTypes.string,
+        user: PropTypes.oneOfType([
+            PropTypes.string,
+            PropTypes.shape({
+                _id: PropTypes.string
+            })
+        ])
     }).isRequired,
     isWatchlisted: PropTypes.bool,
     onRemoveFromWatchlist: PropTypes.func
