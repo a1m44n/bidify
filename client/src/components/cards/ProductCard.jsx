@@ -110,9 +110,12 @@ export const ProductCard = ({ item, isWatchlisted: initialIsWatchlisted, onRemov
 
     const title = item.title || 'Untitled Product';
     const price = item.price || 0;
+    const currentBid = item.currentBid || price;
+    const bidCount = item.bidCount || 0;
+    const hasBids = bidCount > 0;
     const imageUrl = item?.image?.filePath || "default-image-url.jpg";
 
-    console.log('ProductCard rendering with:', { title, price, imageUrl });
+    console.log('ProductCard rendering with:', { title, price, currentBid, bidCount, imageUrl });
 
     return (
         <div className="bg-white shadow-s1 rounded-xl p-3 hover:shadow-lg transition-shadow duration-300">
@@ -146,8 +149,15 @@ export const ProductCard = ({ item, isWatchlisted: initialIsWatchlisted, onRemov
                                     <RiAuctionFill size={40} className="text-green"/>
                                 </div>
                                 <div>
-                                    <Caption className="text-green">Starting Price</Caption>
-                                    <Title>${price}</Title>
+                                    <Caption className="text-green">
+                                        {hasBids ? 'Current Bid' : 'Starting Price'}
+                                    </Caption>
+                                    <Title>${currentBid}</Title>
+                                    {bidCount > 0 && (
+                                        <Caption className="text-gray-500 text-sm">
+                                            {bidCount} bid{bidCount !== 1 ? 's' : ''}
+                                        </Caption>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -188,6 +198,8 @@ ProductCard.propTypes = {
         _id: PropTypes.string.isRequired,
         title: PropTypes.string,
         price: PropTypes.number,
+        currentBid: PropTypes.number,
+        bidCount: PropTypes.number,
         image: PropTypes.shape({
             filePath: PropTypes.string
         }),

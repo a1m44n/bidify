@@ -58,13 +58,17 @@ const searchProducts = asyncHandler(async (req, res) => {
 
         // Get current highest bid for each product
         const productsWithBids = await Promise.all(products.map(async (product) => {
-            const highestBid = await BiddingProduct.findOne({ product: product._id })
-                .sort({ price: -1 })
-                .select('price');
+            const [highestBid, bidCount] = await Promise.all([
+                BiddingProduct.findOne({ product: product._id })
+                    .sort({ price: -1 })
+                    .select('price'),
+                BiddingProduct.countDocuments({ product: product._id })
+            ]);
 
             return {
                 ...product.toObject(),
                 currentBid: highestBid ? highestBid.price : product.price,
+                bidCount: bidCount,
                 timeLeft: getTimeLeft(product.auctionEndTime)
             };
         }));
@@ -246,7 +250,24 @@ const getAllProducts = asyncHandler(async (req, res) => {
         isSoldOut: false
     }).sort("-createdAt").populate("user");
 
-    res.json(products);
+    // Get current highest bid and total bid count for each product
+    const productsWithBids = await Promise.all(products.map(async (product) => {
+        const [highestBid, bidCount] = await Promise.all([
+            BiddingProduct.findOne({ product: product._id })
+                .sort({ price: -1 })
+                .select('price'),
+            BiddingProduct.countDocuments({ product: product._id })
+        ]);
+
+        return {
+            ...product.toObject(),
+            currentBid: highestBid ? highestBid.price : product.price,
+            bidCount: bidCount,
+            timeLeft: getTimeLeft(product.auctionEndTime)
+        };
+    }));
+
+    res.json(productsWithBids);
 });
 
 const deleteProduct = asyncHandler(async (req, res) => {
@@ -356,13 +377,47 @@ const getAllProductsOfUser = asyncHandler(async (req, res) => {
 
     const products = await Product.find({ user: userId}).sort("-createdAt").populate("user");   
 
-    res.json(products);
+    // Get current highest bid and total bid count for each product
+    const productsWithBids = await Promise.all(products.map(async (product) => {
+        const [highestBid, bidCount] = await Promise.all([
+            BiddingProduct.findOne({ product: product._id })
+                .sort({ price: -1 })
+                .select('price'),
+            BiddingProduct.countDocuments({ product: product._id })
+        ]);
+
+        return {
+            ...product.toObject(),
+            currentBid: highestBid ? highestBid.price : product.price,
+            bidCount: bidCount,
+            timeLeft: getTimeLeft(product.auctionEndTime)
+        };
+    }));
+
+    res.json(productsWithBids);
 });
 
 const getAllProductsByAdmin = asyncHandler(async (req, res) => {
     const products = await Product.find({}).sort("-createdAt").populate("user");
 
-    res.json(products);
+    // Get current highest bid and total bid count for each product
+    const productsWithBids = await Promise.all(products.map(async (product) => {
+        const [highestBid, bidCount] = await Promise.all([
+            BiddingProduct.findOne({ product: product._id })
+                .sort({ price: -1 })
+                .select('price'),
+            BiddingProduct.countDocuments({ product: product._id })
+        ]);
+
+        return {
+            ...product.toObject(),
+            currentBid: highestBid ? highestBid.price : product.price,
+            bidCount: bidCount,
+            timeLeft: getTimeLeft(product.auctionEndTime)
+        };
+    }));
+
+    res.json(productsWithBids);
 });
 
 const deleteProductByAdmin = asyncHandler(async (req, res) => {
