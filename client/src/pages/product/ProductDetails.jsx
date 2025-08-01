@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { Container, Title, Caption, Body, commonClassNameOfInput } from "../../components/common/Design";
@@ -78,6 +78,8 @@ export const ProductDetails = () => {
     const [bidSuccess, setBidSuccess] = useState('');
     const [highestBid, setHighestBid] = useState(null);
     const pollingIntervalRef = useRef(null);
+    const animationTimeoutRef = useRef(null);
+    const fetchDebounceRef = useRef(null);
     const [lastBidCount, setLastBidCount] = useState(0);
     const [suggestedPrice, setSuggestedPrice] = useState(null);
     const [loadingSuggestion, setLoadingSuggestion] = useState(false);
@@ -273,8 +275,8 @@ export const ProductDetails = () => {
             setBidSuccess('Your bid has been placed successfully!');
             setBidAmount(''); // Clear the bid input field
             
-            // Fetch updated bidding history to reflect the new bid
-            fetchBiddingHistory();
+            // Fetch updated bidding history to reflect the new bid (force immediate update)
+            fetchBiddingHistory(true);
         } catch (err) {
             setBidError(err.response?.data?.message || 'Failed to place bid');
         }
@@ -307,8 +309,8 @@ export const ProductDetails = () => {
             setUserAutoBid(response.data.autoBid);
             
             // If the current highest bid is by someone else and lower than our max,
-            // our auto-bid will be triggered, so refresh the bidding history
-            fetchBiddingHistory();
+            // our auto-bid will be triggered, so refresh the bidding history (force immediate update)
+            fetchBiddingHistory(true);
         } catch (err) {
             setAutoBidError(err.response?.data?.message || 'Failed to set up auto-bidding');
         }
@@ -328,51 +330,75 @@ export const ProductDetails = () => {
 
     const [biddingHistory, setBiddingHistory] = useState([]);
 
-    const fetchBiddingHistory = async () => {
-        try {
-            const response = await axios.get(`${API_URL}/api/bidding/${id}`);
-            console.log("Bidding history response:", response.data);
-            
-            // Check for new bids to animate
-            if (biddingHistory.length > 0 && response.data.length > biddingHistory.length) {
-                // Find new bid ids that weren't in the previous biddingHistory
-                const existingIds = new Set(biddingHistory.map(bid => bid._id));
-                const newIds = response.data
-                    .filter(bid => !existingIds.has(bid._id))
-                    .map(bid => bid._id);
-                
-                // Update new bid ids for animation
-                setNewBidIds(new Set(newIds));
-                
-                // Clear animation flags after animation completes (600ms)
-                setTimeout(() => {
-                    setNewBidIds(new Set());
-                }, 600);
-            }
-            
-            setBiddingHistory(response.data);
-            
-            // Find the highest bid from the history
-            if (response.data && response.data.length > 0) {
-                // Sort by price in descending order to get the highest bid first
-                const sortedBids = [...response.data].sort((a, b) => b.price - a.price);
-                setHighestBid(sortedBids[0]);
-                
-                // Check if there are new bids
-                if (response.data.length !== lastBidCount) {
-                    setLastBidCount(response.data.length);
-                    
-                    // If this isn't the initial load and there are new bids, show notification
-                    if (lastBidCount > 0) {
-                        // You could add a notification or sound here
-                        console.log("New bid received!");
-                    }
-                }
-            }
-        } catch (err) {
-            console.error('Failed to fetch bidding history:', err);
+    // Debounced fetch function to prevent rapid successive calls
+    const fetchBiddingHistory = useCallback(async (forceUpdate = false) => {
+        // Clear any pending debounced calls unless it's a forced update
+        if (!forceUpdate && fetchDebounceRef.current) {
+            clearTimeout(fetchDebounceRef.current);
         }
-    };
+
+        const doFetch = async () => {
+            try {
+                const response = await axios.get(`${API_URL}/api/bidding/${id}`);
+                console.log("Bidding history response:", response.data);
+                
+                setBiddingHistory(prevHistory => {
+                    // Check for new bids to animate using the previous state
+                    if (prevHistory.length > 0 && response.data.length > prevHistory.length) {
+                        // Find new bid ids that weren't in the previous biddingHistory
+                        const existingIds = new Set(prevHistory.map(bid => bid._id));
+                        const newIds = response.data
+                            .filter(bid => !existingIds.has(bid._id))
+                            .map(bid => bid._id);
+                        
+                        if (newIds.length > 0) {
+                            // Clear any existing animation timeout
+                            if (animationTimeoutRef.current) {
+                                clearTimeout(animationTimeoutRef.current);
+                            }
+                            
+                            // Update new bid ids for animation
+                            setNewBidIds(new Set(newIds));
+                            
+                            // Clear animation flags after animation completes (800ms - increased from 600ms)
+                            animationTimeoutRef.current = setTimeout(() => {
+                                setNewBidIds(new Set());
+                                animationTimeoutRef.current = null;
+                            }, 800);
+                        }
+                    }
+                    
+                    return response.data;
+                });
+                
+                // Find the highest bid from the history
+                if (response.data && response.data.length > 0) {
+                    // Sort by price in descending order to get the highest bid first
+                    const sortedBids = [...response.data].sort((a, b) => b.price - a.price);
+                    setHighestBid(sortedBids[0]);
+                    
+                    // Check if there are new bids using functional update to avoid stale closure
+                    setLastBidCount(prevCount => {
+                        // If this isn't the initial load and there are new bids, show notification
+                        if (prevCount > 0 && response.data.length > prevCount) {
+                            console.log("New bid received!");
+                        }
+                        return response.data.length;
+                    });
+                }
+            } catch (err) {
+                console.error('Failed to fetch bidding history:', err);
+            }
+        };
+
+        if (forceUpdate) {
+            // Execute immediately for forced updates (like manual bid placement)
+            await doFetch();
+        } else {
+            // Debounce regular polling calls to prevent rapid successive requests
+            fetchDebounceRef.current = setTimeout(doFetch, 300);
+        }
+    }, [id]);
 
     // Fetch user's auto-bid for this product
     const fetchUserAutoBid = async () => {
@@ -412,21 +438,30 @@ export const ProductDetails = () => {
 
     // Set up polling for real-time updates
     useEffect(() => {
+        // Clear any existing interval first to prevent multiple intervals
+        if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+        }
+        
         // Skip if product is archived or sold
-        if (product?.isArchived || product?.isSoldOut) {
+        if (product?.isArchived || product?.isSoldOut || isExpired) {
             return;
         }
         
-        // Set up polling every 3 seconds
-        pollingIntervalRef.current = setInterval(fetchBiddingHistory, 3000);
+        // Set up polling every 4 seconds (increased from 3 to reduce load)
+        pollingIntervalRef.current = setInterval(() => {
+            fetchBiddingHistory(false); // Use debounced calls for polling
+        }, 4000);
         
         // Clean up interval on component unmount
         return () => {
             if (pollingIntervalRef.current) {
                 clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
             }
         };
-    }, [id, product?.isArchived, product?.isSoldOut]);
+    }, [fetchBiddingHistory, product?.isArchived, product?.isSoldOut, isExpired]);
 
     // Additional cleanup for polling when the auction ends
     useEffect(() => {
@@ -438,6 +473,29 @@ export const ProductDetails = () => {
             }
         }
     }, [isExpired, product?.isArchived, product?.isSoldOut]);
+
+    // Comprehensive cleanup on component unmount
+    useEffect(() => {
+        return () => {
+            // Clear polling interval
+            if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+            }
+            
+            // Clear animation timeout
+            if (animationTimeoutRef.current) {
+                clearTimeout(animationTimeoutRef.current);
+                animationTimeoutRef.current = null;
+            }
+            
+            // Clear fetch debounce timeout
+            if (fetchDebounceRef.current) {
+                clearTimeout(fetchDebounceRef.current);
+                fetchDebounceRef.current = null;
+            }
+        };
+    }, []);
 
     // Function to fetch price suggestion
     const fetchPriceSuggestion = async () => {
