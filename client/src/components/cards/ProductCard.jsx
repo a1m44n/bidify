@@ -3,7 +3,6 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { ProfileCard, Caption, Title, PrimaryButton } from "../common/Design";
 import { RiAuctionFill } from "react-icons/ri";
 import { MdOutlineFavorite, MdOutlineFavoriteBorder } from "react-icons/md";
-import { IoMdTime } from "react-icons/io";
 import { useAuth } from "../../context/AuthContext";
 import { useState, useEffect } from "react";
 import axios from "axios";
@@ -179,9 +178,6 @@ export const ProductCard = ({ item, isWatchlisted: initialIsWatchlisted, onRemov
                             alt={title}
                             className="w-full h-full object-cover rounded-xl hover:scale-105 transition-transform duration-300 ease-in-out"
                         />
-                        <ProfileCard className="shadow-s1 absolute right-3 bottom-3">
-                            <RiAuctionFill size={22} className="text-green"/>
-                        </ProfileCard>
                         <div className="absolute top-2 right-2">
                             {item?.isSoldOut ? (
                                 <Caption className="text-red-500 bg-white px-3 py-1 text-sm rounded-full">Sold Out</Caption>
@@ -213,41 +209,24 @@ export const ProductCard = ({ item, isWatchlisted: initialIsWatchlisted, onRemov
                                 </div>
                             </div>
                         </div>
-                        <hr className="mt-3"/>
                         
-                        {/* Timer Section */}
+                        {/* Compact Timer */}
                         {item.auctionEndTime && !timeLeft.expired && (
-                            <div className="flex items-center justify-center py-3">
-                                <div className="flex items-center gap-3 bg-gray-50 px-4 py-2 rounded-lg">
-                                    <IoMdTime size={18} className="text-orange-500"/>
-                                    <div className="text-center">
-                                        <Caption className="text-gray-600 text-xs">TIME LEFT</Caption>
-                                        <div className="flex gap-1 text-sm font-medium text-gray-800">
-                                            {timeLeft.days > 0 && (
-                                                <>
-                                                    <span>{timeLeft.days}d</span>
-                                                    <span className="text-gray-400">:</span>
-                                                </>
-                                            )}
-                                            <span>{String(timeLeft.hours).padStart(2, '0')}h</span>
-                                            <span className="text-gray-400">:</span>
-                                            <span>{String(timeLeft.minutes).padStart(2, '0')}m</span>
-                                            <span className="text-gray-400">:</span>
-                                            <span>{String(timeLeft.seconds).padStart(2, '0')}s</span>
-                                        </div>
-                                    </div>
-                                </div>
+                            <div className="text-center mt-2">
+                                <Caption className="text-red-500 text-xs font-medium">
+                                    {timeLeft.days > 0 && `${timeLeft.days}d `}
+                                    {String(timeLeft.hours).padStart(2, '0')}h {String(timeLeft.minutes).padStart(2, '0')}m left
+                                </Caption>
                             </div>
                         )}
 
                         {item.auctionEndTime && timeLeft.expired && (
-                            <div className="flex items-center justify-center py-3">
-                                <div className="flex items-center gap-3 bg-red-50 px-4 py-2 rounded-lg">
-                                    <IoMdTime size={18} className="text-red-500"/>
-                                    <Caption className="text-red-600 font-medium">AUCTION ENDED</Caption>
-                                </div>
+                            <div className="text-center mt-2">
+                                <Caption className="text-red-500 text-xs font-medium">AUCTION ENDED</Caption>
                             </div>
                         )}
+                        
+                        <hr className="mt-3"/>
                     </div>
                 </NavLink>
 
