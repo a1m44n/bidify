@@ -23,9 +23,12 @@ export const ProductList = ({ selectedCategory, searchQuery }) => {
     const fetchProducts = async () => {
         try {
             const response = await axios.get(`${API_URL}/api/product`);
+            console.log('ProductList received data:', response.data);
+            console.log('Sample product with bid data:', response.data[0]);
             setProducts(response.data);
             setLoading(false);
         } catch (err) {
+            console.error('Error fetching products:', err);
             setError('Failed to fetch products');
             setLoading(false);
         }
