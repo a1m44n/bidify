@@ -43,7 +43,7 @@ class TelegramBot {
      * @returns {Promise} - The response from the Telegram API
      */
     async sendMessage(chatId, text, retryCount = 0) {
-        const maxRetries = 3;
+        const maxRetries = 10;
         const retryDelay = 2000; // 2 seconds
         
         try {
@@ -84,7 +84,7 @@ class TelegramBot {
             
             // Retry on network errors
             if (isNetworkError && retryCount < maxRetries) {
-                console.log(`⏳ Retrying in ${retryDelay}ms... (${retryCount + 1}/${maxRetries})`);
+                console.log(`⏳ Retrying in ${retryDelay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
                 await new Promise(resolve => setTimeout(resolve, retryDelay));
                 return this.sendMessage(chatId, text, retryCount + 1);
             }
