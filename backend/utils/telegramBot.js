@@ -61,8 +61,24 @@ class TelegramBot {
 
             return { success: true, data: response.data };
         } catch (error) {
-            console.error('Error sending Telegram message:', error.response?.data || error.message);
-            return { success: false, error: error.response?.data || error.message };
+            console.error('Error sending Telegram message:', {
+                errorMessage: error.message,
+                responseData: error.response?.data,
+                responseStatus: error.response?.status,
+                config: {
+                    url: error.config?.url,
+                    method: error.config?.method,
+                    data: error.config?.data
+                },
+                fullError: error
+            });
+            
+            const errorMsg = error.response?.data?.description || 
+                           error.response?.data || 
+                           error.message || 
+                           'Unknown Telegram API error';
+            
+            return { success: false, error: errorMsg };
         }
     }
 

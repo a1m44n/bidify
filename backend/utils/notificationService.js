@@ -30,23 +30,43 @@ class NotificationService {
             // Check if recipient has Telegram notifications enabled
             const recipient = await User.findById(recipientId);
             
+            console.log(`📱 Checking telegram settings for outbid notification to user ${recipientId}:`, {
+                hasRecipient: !!recipient,
+                username: recipient?.username,
+                telegramChatId: recipient?.telegramChatId ? '***SET***' : 'NOT SET',
+                telegramEnabled: recipient?.notificationPreferences?.telegram?.enabled,
+                notifyOnOutbid: recipient?.notificationPreferences?.telegram?.notifyOnOutbid,
+                fullPrefs: recipient?.notificationPreferences
+            });
+            
             if (recipient && 
                 recipient.telegramChatId && 
                 recipient.notificationPreferences?.telegram?.enabled &&
                 recipient.notificationPreferences?.telegram?.notifyOnOutbid) {
                 
                 try {
+                    console.log(`🚀 Sending telegram outbid notification to user ${recipientId}`);
+                    
                     // Send Telegram notification
                     const telegramMessage = telegramBot.createOutbidMessage(product, price, bidder.username);
                     const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
                     
-                    if (!result.success) {
-                        console.warn(`Failed to send telegram outbid notification to user ${recipientId}:`, result.error);
+                    if (result.success) {
+                        console.log(`✅ Telegram outbid notification sent successfully to user ${recipientId}`);
+                    } else {
+                        console.warn(`⚠️ Failed to send telegram outbid notification to user ${recipientId}:`, result.error);
                     }
                 } catch (telegramError) {
-                    console.error(`Error sending telegram outbid notification to user ${recipientId}:`, telegramError.message);
+                    console.error(`❌ Error sending telegram outbid notification to user ${recipientId}:`, telegramError.message);
                     // Don't throw - allow the bidding process to continue
                 }
+            } else {
+                console.log(`🚫 Telegram outbid notification NOT sent to user ${recipientId}. Reason:`, {
+                    hasRecipient: !!recipient,
+                    hasChatId: !!recipient?.telegramChatId,
+                    telegramEnabled: recipient?.notificationPreferences?.telegram?.enabled,
+                    notifyOnOutbid: recipient?.notificationPreferences?.telegram?.notifyOnOutbid
+                });
             }
 
             return message;
