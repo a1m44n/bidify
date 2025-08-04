@@ -42,7 +42,10 @@ class TelegramBot {
      * @param {string} text - The message text
      * @returns {Promise} - The response from the Telegram API
      */
-    async sendMessage(chatId, text) {
+    async sendMessage(chatId, text, retryCount = 0) {
+        const maxRetries = 3;
+        const retryDelay = 2000; // 2 seconds
+        
         try {
             if (!this.token) {
                 console.warn('Telegram bot token not configured, skipping notification');
@@ -53,25 +56,38 @@ class TelegramBot {
                 return { success: false, error: 'Missing chat ID' };
             }
 
+            console.log(`📡 Attempting to send Telegram message (attempt ${retryCount + 1}/${maxRetries + 1})`);
+
             const response = await axios.post(`${this.apiUrl}/sendMessage`, {
                 chat_id: chatId,
                 text,
                 parse_mode: 'HTML'
+            }, {
+                timeout: 30000 // 30 second timeout
             });
 
+            console.log(`✅ Telegram message sent successfully on attempt ${retryCount + 1}`);
             return { success: true, data: response.data };
         } catch (error) {
-            console.error('Error sending Telegram message:', {
+            const isNetworkError = error.code === 'ETIMEDOUT' || 
+                                 error.code === 'ECONNRESET' || 
+                                 error.code === 'ENOTFOUND';
+            
+            console.error(`❌ Error sending Telegram message (attempt ${retryCount + 1}):`, {
                 errorMessage: error.message,
+                errorCode: error.code,
                 responseData: error.response?.data,
                 responseStatus: error.response?.status,
-                config: {
-                    url: error.config?.url,
-                    method: error.config?.method,
-                    data: error.config?.data
-                },
-                fullError: error
+                isNetworkError,
+                willRetry: isNetworkError && retryCount < maxRetries
             });
+            
+            // Retry on network errors
+            if (isNetworkError && retryCount < maxRetries) {
+                console.log(`⏳ Retrying in ${retryDelay}ms... (${retryCount + 1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                return this.sendMessage(chatId, text, retryCount + 1);
+            }
             
             const errorMsg = error.response?.data?.description || 
                            error.response?.data || 
