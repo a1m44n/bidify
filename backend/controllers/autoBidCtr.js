@@ -167,6 +167,15 @@ const createAutoBid = asyncHandler(async (req, res) => {
             });
             console.log('Initial bid created:', newBid);
 
+            // Notify the auto-bid owner that their system placed the initial bid
+            const autoBidOwner = await User.findById(userId, "username");
+            await notificationService.sendAutoBidResponseNotification(
+                product,
+                userId,
+                initialBidAmount,
+                autoBidOwner
+            );
+
             // Check for auto-bids that can't respond due to max limit exceeded by this initial auto-bid
             await checkAndNotifyExceededAutoBids(productId, initialBidAmount, userId, product);
 
@@ -195,6 +204,15 @@ const createAutoBid = asyncHandler(async (req, res) => {
                     nextAutoBid.product,
                     nextAutoBid.price,
                     true
+                );
+
+                // Notify the auto-bid owner that their system responded
+                const autoBidOwner = await User.findById(nextAutoBid.user, "username");
+                await notificationService.sendAutoBidResponseNotification(
+                    product,
+                    nextAutoBid.user,
+                    nextAutoBid.price,
+                    autoBidOwner
                 );
 
                 // Prepare for the next iteration

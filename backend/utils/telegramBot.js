@@ -111,6 +111,19 @@ class TelegramBot {
     }
 
     /**
+     * Creates a message for auto-bid owner when their system responds
+     * 
+     * @param {object} productDetails - Product details
+     * @param {number} autoBidPrice - The auto-bid price that was placed
+     * @returns {string} - Formatted message
+     */
+    createAutoBidResponseMessage(productDetails, autoBidPrice) {
+        return `🤖 <b>Auto-Bid System Responded!</b>\n\n` +
+            `Your auto-bid system automatically placed a bid of $${autoBidPrice} on "${productDetails.title}".\n` +
+            `You are now the highest bidder!`;
+    }
+
+    /**
      * Creates a message for auction win notification
      * 
      * @param {object} productDetails - Product details

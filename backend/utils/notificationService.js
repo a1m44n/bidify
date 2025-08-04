@@ -157,6 +157,55 @@ class NotificationService {
     }
 
     /**
+     * Send notification to auto-bid owner when their system responds
+     * 
+     * @param {object} product - Product details
+     * @param {string} autoBidOwnerId - Auto-bid owner's user ID
+     * @param {number} autoBidPrice - The auto-bid price that was placed
+     * @param {object} autoBidder - Auto-bidder's user object
+     */
+    async sendAutoBidResponseNotification(product, autoBidOwnerId, autoBidPrice, autoBidder) {
+        try {
+            // Create message for internal notifications
+            const message = await Message.create({
+                productId: product._id,
+                productTitle: product.title,
+                sender: autoBidOwnerId, // Auto-bid owner is both sender and recipient
+                recipient: autoBidOwnerId,
+                messageType: 'AUTO_BID_RESPONSE',
+                message: `Your auto-bid system automatically placed a bid of $${autoBidPrice} on "${product.title}". You are now the highest bidder!`
+            });
+
+            // Check if recipient has Telegram notifications enabled
+            const recipient = await User.findById(autoBidOwnerId);
+            
+            if (recipient && 
+                recipient.telegramChatId && 
+                recipient.notificationPreferences?.telegram?.enabled &&
+                recipient.notificationPreferences?.telegram?.notifyOnOutbid) {
+                
+                try {
+                    // Send Telegram notification
+                    const telegramMessage = telegramBot.createAutoBidResponseMessage(product, autoBidPrice);
+                    const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                    
+                    if (!result.success) {
+                        console.warn(`Failed to send telegram auto-bid response notification to user ${autoBidOwnerId}:`, result.error);
+                    }
+                } catch (telegramError) {
+                    console.error(`Error sending telegram auto-bid response notification to user ${autoBidOwnerId}:`, telegramError.message);
+                    // Don't throw - allow the bidding process to continue
+                }
+            }
+
+            return message;
+        } catch (error) {
+            console.error('Error sending auto-bid response notification:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Send notification about winning an auction
      * 
      * @param {object} product - Product details

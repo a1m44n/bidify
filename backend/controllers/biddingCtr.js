@@ -191,6 +191,14 @@ const placeBid = asyncHandler(async (req, res) => {
                 autoBidder
             );
 
+            // Also notify the auto-bid owner that their system responded
+            await notificationService.sendAutoBidResponseNotification(
+                product,
+                autoBidResult.user,
+                autoBidResult.price,
+                autoBidder
+            );
+
             // Update trackers for the next iteration
             lastBidUserId = autoBidResult.user;
             lastBidPrice = autoBidResult.price;
