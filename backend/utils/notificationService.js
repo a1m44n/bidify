@@ -57,6 +57,106 @@ class NotificationService {
     }
 
     /**
+     * Send notification about being outbid by auto-bid system
+     * 
+     * @param {object} product - Product details
+     * @param {string} autoBidUserId - Auto-bidder's user ID
+     * @param {string} recipientId - Previous highest bidder's user ID
+     * @param {number} price - New auto-bid price 
+     * @param {object} autoBidder - Auto-bidder's user object
+     */
+    async sendAutoBidOutbidNotification(product, autoBidUserId, recipientId, price, autoBidder) {
+        try {
+            // Create message for internal notifications
+            const message = await Message.create({
+                productId: product._id,
+                productTitle: product.title,
+                sender: autoBidUserId, // Auto-bidder is the sender
+                recipient: recipientId, // Previous highest bidder is the recipient
+                messageType: 'AUCTION_AUTO_OUTBID',
+                message: `You have been outbid on "${product.title}" by an auto-bidder. The new highest bid is $${price} by @${autoBidder.username}.`
+            });
+
+            // Check if recipient has Telegram notifications enabled
+            const recipient = await User.findById(recipientId);
+            
+            if (recipient && 
+                recipient.telegramChatId && 
+                recipient.notificationPreferences?.telegram?.enabled &&
+                recipient.notificationPreferences?.telegram?.notifyOnOutbid) {
+                
+                try {
+                    // Send Telegram notification
+                    const telegramMessage = telegramBot.createAutoBidOutbidMessage(product, price, autoBidder.username);
+                    const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                    
+                    if (!result.success) {
+                        console.warn(`Failed to send telegram auto-bid outbid notification to user ${recipientId}:`, result.error);
+                    }
+                } catch (telegramError) {
+                    console.error(`Error sending telegram auto-bid outbid notification to user ${recipientId}:`, telegramError.message);
+                    // Don't throw - allow the bidding process to continue
+                }
+            }
+
+            return message;
+        } catch (error) {
+            console.error('Error sending auto-bid outbid notification:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Send notification when someone exceeds auto-bid maximum
+     * 
+     * @param {object} product - Product details
+     * @param {string} autoBidOwnerId - Auto-bid owner's user ID
+     * @param {number} newBidPrice - The bid that exceeded the maximum
+     * @param {number} maxBidAmount - The auto-bid maximum amount
+     * @param {object} bidder - User who placed the exceeding bid
+     */
+    async sendMaxBidExceededNotification(product, autoBidOwnerId, newBidPrice, maxBidAmount, bidder) {
+        try {
+            // Create message for internal notifications
+            const message = await Message.create({
+                productId: product._id,
+                productTitle: product.title,
+                sender: bidder._id, // Current bidder is the sender
+                recipient: autoBidOwnerId, // Auto-bid owner is the recipient
+                messageType: 'AUTO_BID_MAX_EXCEEDED',
+                message: `Someone bid $${newBidPrice} on "${product.title}", exceeding your maximum auto-bid of $${maxBidAmount}. Manual action required!`
+            });
+
+            // Check if recipient has Telegram notifications enabled
+            const recipient = await User.findById(autoBidOwnerId);
+            
+            if (recipient && 
+                recipient.telegramChatId && 
+                recipient.notificationPreferences?.telegram?.enabled &&
+                recipient.notificationPreferences?.telegram?.notifyOnOutbid) {
+                
+                try {
+                    // Send Telegram notification
+                    const telegramMessage = telegramBot.createMaxBidExceededMessage(product, newBidPrice, maxBidAmount, bidder.username);
+                    const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
+                    
+                    if (!result.success) {
+                        console.warn(`Failed to send telegram max bid exceeded notification to user ${autoBidOwnerId}:`, result.error);
+                    }
+                } catch (telegramError) {
+                    console.error(`Error sending telegram max bid exceeded notification to user ${autoBidOwnerId}:`, telegramError.message);
+                    // Don't throw - allow the bidding process to continue
+                }
+            }
+
+            return message;
+        } catch (error) {
+            console.error('Error sending max bid exceeded notification:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Send notification about winning an auction
      * 
      * @param {object} product - Product details

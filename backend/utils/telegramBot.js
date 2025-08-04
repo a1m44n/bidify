@@ -81,6 +81,36 @@ class TelegramBot {
     }
 
     /**
+     * Creates a message for auto-bid outbid notification
+     * 
+     * @param {object} productDetails - Product details
+     * @param {number} price - New bid price
+     * @param {string} bidderUsername - Username of the auto-bidder
+     * @returns {string} - Formatted message
+     */
+    createAutoBidOutbidMessage(productDetails, price, bidderUsername) {
+        return `🤖 <b>Auto-Bid System Responded!</b>\n\n` +
+            `Your auto-bid system automatically outbid someone on "${productDetails.title}".\n` +
+            `New highest bid: $${price} by your auto-bidder @${bidderUsername}`;
+    }
+
+    /**
+     * Creates a message for when someone exceeds auto-bid maximum
+     * 
+     * @param {object} productDetails - Product details
+     * @param {number} newBidPrice - The bid that exceeded the max
+     * @param {number} maxBidAmount - The user's maximum auto-bid amount
+     * @param {string} bidderUsername - Username who placed the exceeding bid
+     * @returns {string} - Formatted message
+     */
+    createMaxBidExceededMessage(productDetails, newBidPrice, maxBidAmount, bidderUsername) {
+        return `❌ <b>Auto-Bid Maximum Exceeded!</b>\n\n` +
+            `Someone bid $${newBidPrice} on "${productDetails.title}", exceeding your maximum auto-bid of $${maxBidAmount}.\n` +
+            `New highest bid: $${newBidPrice} by @${bidderUsername}\n\n` +
+            `<b>Manual action required!</b> Increase your auto-bid limit or place a manual bid to continue.`;
+    }
+
+    /**
      * Creates a message for auction win notification
      * 
      * @param {object} productDetails - Product details

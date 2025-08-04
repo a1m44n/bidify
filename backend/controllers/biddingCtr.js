@@ -39,6 +39,35 @@ const addToWatchlistIfNotExists = async (userId, productId) => {
     }
 };
 
+// Helper function to check and notify auto-bid owners when their max is exceeded
+const checkAndNotifyExceededAutoBids = async (productId, currentBidPrice, currentBidUserId, product, bidder) => {
+    try {
+        // Find all active auto-bids for this product, excluding the current bidder
+        const autoBids = await AutoBid.find({
+            product: productId,
+            isActive: true,
+            user: { $ne: currentBidUserId }
+        }).populate("user", "username");
+
+        // Check which auto-bids have their max exceeded by the current bid
+        for (const autoBid of autoBids) {
+            if (autoBid.maxBidAmount <= currentBidPrice) {
+                // This auto-bid's maximum has been exceeded
+                await notificationService.sendMaxBidExceededNotification(
+                    product,
+                    autoBid.user._id,
+                    currentBidPrice,
+                    autoBid.maxBidAmount,
+                    bidder
+                );
+            }
+        }
+    } catch (error) {
+        console.error('Error checking and notifying exceeded auto-bids:', error);
+        // Don't throw - allow the bidding process to continue
+    }
+};
+
 const getBiddingHistory = asyncHandler(async (req, res) => {
     const { productId } = req.params;
     const biddingHistory = await BiddingProduct.find({ product: productId })
@@ -119,7 +148,12 @@ const placeBid = asyncHandler(async (req, res) => {
             price,
             bidder
         );
-        
+    }
+    
+    // Check for auto-bids that can't respond due to max limit exceeded by this manual bid
+    await checkAndNotifyExceededAutoBids(productId, price, userId, product, bidder);
+    
+    if (highestBid && highestBid.user._id.toString() !== userId.toString()) {
         /*
          * Continuously process auto-bids until no more qualified auto-bidders
          * are able to outbid the current highest bid. This ensures that when
@@ -134,6 +168,8 @@ const placeBid = asyncHandler(async (req, res) => {
             const autoBidResult = await processAutoBids(productId, lastBidPrice, lastBidUserId);
 
             if (!autoBidResult) {
+                // Check if there are auto-bids that couldn't respond due to max limit exceeded
+                await checkAndNotifyExceededAutoBids(productId, lastBidPrice, lastBidUserId, product, bidder);
                 break; // No further auto-bids triggered
             }
 
@@ -145,9 +181,9 @@ const placeBid = asyncHandler(async (req, res) => {
                 true
             );
 
-            // Notify the previous highest bidder that they have been outbid
+            // Notify the previous highest bidder that they have been outbid by auto-bid system
             const autoBidder = await User.findById(autoBidResult.user, "username");
-            await notificationService.sendOutbidNotification(
+            await notificationService.sendAutoBidOutbidNotification(
                 product,
                 autoBidResult.user,
                 lastBidUserId,

@@ -3,7 +3,9 @@ const AutoBid = require("../models/autoBidModel");
 const Product = require("../models/productModels");
 const BiddingProduct = require("../models/biddingModel");
 const Watchlist = require("../models/watchlistModel");
+const User = require("../models/UserModels");
 const bidService = require("../services/bidService");
+const notificationService = require("../utils/notificationService");
 const { calculateMinBidIncrement } = bidService;
 
 // Helper function to add product to watchlist
@@ -32,6 +34,38 @@ const addToWatchlistIfNotExists = async (userId, productId) => {
     } catch (error) {
         // Log the error but don't fail the bid/auto-bid process
         console.error('Error auto-adding to watchlist:', error);
+    }
+};
+
+// Helper function to check and notify auto-bid owners when their max is exceeded
+const checkAndNotifyExceededAutoBids = async (productId, currentBidPrice, currentBidUserId, product) => {
+    try {
+        // Find all active auto-bids for this product, excluding the current bidder
+        const autoBids = await AutoBid.find({
+            product: productId,
+            isActive: true,
+            user: { $ne: currentBidUserId }
+        }).populate("user", "username");
+
+        // Get the current bidder info to include in notifications
+        const currentBidder = await User.findById(currentBidUserId, "username");
+
+        // Check which auto-bids have their max exceeded by the current bid
+        for (const autoBid of autoBids) {
+            if (autoBid.maxBidAmount <= currentBidPrice) {
+                // This auto-bid's maximum has been exceeded
+                await notificationService.sendMaxBidExceededNotification(
+                    product,
+                    autoBid.user._id,
+                    currentBidPrice,
+                    autoBid.maxBidAmount,
+                    currentBidder
+                );
+            }
+        }
+    } catch (error) {
+        console.error('Error checking and notifying exceeded auto-bids:', error);
+        // Don't throw - allow the auto-bid process to continue
     }
 };
 
@@ -133,6 +167,9 @@ const createAutoBid = asyncHandler(async (req, res) => {
             });
             console.log('Initial bid created:', newBid);
 
+            // Check for auto-bids that can't respond due to max limit exceeded by this initial auto-bid
+            await checkAndNotifyExceededAutoBids(productId, initialBidAmount, userId, product);
+
             /*
              * After placing the initial bid for this auto-bidder, we need to process any
              * other active auto-bids on the same product so that they can immediately
@@ -147,6 +184,8 @@ const createAutoBid = asyncHandler(async (req, res) => {
                 const nextAutoBid = await processAutoBids(productId, lastBidPrice, lastBidUserId);
 
                 if (!nextAutoBid) {
+                    // Check if there are auto-bids that couldn't respond due to max limit exceeded
+                    await checkAndNotifyExceededAutoBids(productId, lastBidPrice, lastBidUserId, product);
                     break; // No further auto-bids triggered
                 }
 
