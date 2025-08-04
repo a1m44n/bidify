@@ -214,7 +214,21 @@ class NotificationService {
      */
     async sendAuctionWinNotification(product, recipientId, winningBid) {
         try {
-            console.log(`🏆 Sending auction win notification to user ${recipientId} for product "${product.title}"`);
+            console.log(`🏆 Attempting to send auction win notification to user ${recipientId} for product "${product.title}"`);
+            
+            // Check for existing win notification to prevent duplicates
+            const existingWinNotification = await Message.findOne({
+                productId: product._id,
+                recipient: recipientId,
+                messageType: 'AUCTION_WIN'
+            });
+
+            if (existingWinNotification) {
+                console.log(`⚠️ Auction win notification already exists for user ${recipientId} and product ${product._id}. Skipping duplicate.`);
+                return existingWinNotification;
+            }
+
+            console.log(`✅ No existing win notification found. Proceeding to send notification.`);
             
             // Create message for internal notifications
             const message = await Message.create({
@@ -227,7 +241,7 @@ class NotificationService {
                 winningBid
             });
 
-            console.log(`✅ Internal auction win message created for user ${recipientId}`);
+            console.log(`✅ Internal auction win message created for user ${recipientId} for product ${product._id}`);
 
             // Check if recipient has Telegram notifications enabled
             const recipient = await User.findById(recipientId);
@@ -294,6 +308,22 @@ class NotificationService {
      */
     async sendAuctionEndNotification(product, recipientId, winner = null, finalPrice = null) {
         try {
+            console.log(`🏁 Attempting to send auction end notification to user ${recipientId} for product "${product.title}"`);
+            
+            // Check for existing auction end notification to prevent duplicates
+            const existingEndNotification = await Message.findOne({
+                productId: product._id,
+                recipient: recipientId,
+                messageType: 'AUCTION_END'
+            });
+
+            if (existingEndNotification) {
+                console.log(`⚠️ Auction end notification already exists for user ${recipientId} and product ${product._id}. Skipping duplicate.`);
+                return existingEndNotification;
+            }
+
+            console.log(`✅ No existing auction end notification found. Proceeding to send notification.`);
+
             // Create appropriate message based on whether there was a winner
             let internalMessage;
             if (winner && finalPrice) {
@@ -311,6 +341,8 @@ class NotificationService {
                 messageType: 'AUCTION_END',
                 message: internalMessage
             });
+
+            console.log(`✅ Internal auction end message created for user ${recipientId} for product ${product._id}`);
 
             // Check if recipient has Telegram notifications enabled
             const recipient = await User.findById(recipientId);
