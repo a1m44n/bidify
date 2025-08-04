@@ -87,6 +87,23 @@ class NotificationService {
      */
     async sendAutoBidOutbidNotification(product, autoBidUserId, recipientId, price, autoBidder) {
         try {
+            console.log(`🤖 Attempting to send auto-bid outbid notification to user ${recipientId} for product "${product.title}"`);
+            
+            // Check for existing auto-bid outbid notification to prevent duplicates
+            const existingNotification = await Message.findOne({
+                productId: product._id,
+                recipient: recipientId,
+                messageType: 'AUCTION_AUTO_OUTBID',
+                sender: autoBidUserId
+            });
+
+            if (existingNotification) {
+                console.log(`⚠️ Auto-bid outbid notification already exists for user ${recipientId} and product ${product._id}. Skipping duplicate.`);
+                return existingNotification;
+            }
+
+            console.log(`✅ No existing auto-bid outbid notification found. Proceeding to send notification.`);
+
             // Create message for internal notifications
             const message = await Message.create({
                 productId: product._id,
@@ -96,6 +113,8 @@ class NotificationService {
                 messageType: 'AUCTION_AUTO_OUTBID',
                 message: `You have been outbid on "${product.title}" by an auto-bidder. The new highest bid is $${price} by @${autoBidder.username}.`
             });
+
+            console.log(`✅ Internal auto-bid outbid message created for user ${recipientId} for product ${product._id}`);
 
             // Check if recipient has Telegram notifications enabled
             const recipient = await User.findById(recipientId);
@@ -137,6 +156,23 @@ class NotificationService {
      */
     async sendMaxBidExceededNotification(product, autoBidOwnerId, newBidPrice, maxBidAmount, bidder) {
         try {
+            console.log(`❌ Attempting to send max bid exceeded notification to user ${autoBidOwnerId} for product "${product.title}"`);
+            
+            // Check for existing max bid exceeded notification to prevent duplicates
+            const existingNotification = await Message.findOne({
+                productId: product._id,
+                recipient: autoBidOwnerId,
+                messageType: 'AUTO_BID_MAX_EXCEEDED',
+                sender: bidder._id
+            });
+
+            if (existingNotification) {
+                console.log(`⚠️ Max bid exceeded notification already exists for user ${autoBidOwnerId} and product ${product._id}. Skipping duplicate.`);
+                return existingNotification;
+            }
+
+            console.log(`✅ No existing max bid exceeded notification found. Proceeding to send notification.`);
+
             // Create message for internal notifications
             const message = await Message.create({
                 productId: product._id,
@@ -146,6 +182,8 @@ class NotificationService {
                 messageType: 'AUTO_BID_MAX_EXCEEDED',
                 message: `Someone bid $${newBidPrice} on "${product.title}", exceeding your maximum auto-bid of $${maxBidAmount}. Manual action required!`
             });
+
+            console.log(`✅ Internal max bid exceeded message created for user ${autoBidOwnerId} for product ${product._id}`);
 
             // Check if recipient has Telegram notifications enabled
             const recipient = await User.findById(autoBidOwnerId);
@@ -186,6 +224,23 @@ class NotificationService {
      */
     async sendAutoBidResponseNotification(product, autoBidOwnerId, autoBidPrice, autoBidder) {
         try {
+            console.log(`🔄 Attempting to send auto-bid response notification to user ${autoBidOwnerId} for product "${product.title}"`);
+            
+            // Check for existing auto-bid response notification to prevent duplicates
+            const existingNotification = await Message.findOne({
+                productId: product._id,
+                recipient: autoBidOwnerId,
+                messageType: 'AUTO_BID_RESPONSE',
+                sender: autoBidOwnerId
+            });
+
+            if (existingNotification) {
+                console.log(`⚠️ Auto-bid response notification already exists for user ${autoBidOwnerId} and product ${product._id}. Skipping duplicate.`);
+                return existingNotification;
+            }
+
+            console.log(`✅ No existing auto-bid response notification found. Proceeding to send notification.`);
+
             // Create message for internal notifications
             const message = await Message.create({
                 productId: product._id,
@@ -195,6 +250,8 @@ class NotificationService {
                 messageType: 'AUTO_BID_RESPONSE',
                 message: `Your auto-bid system automatically placed a bid of $${autoBidPrice} on "${product.title}". You are now the highest bidder!`
             });
+
+            console.log(`✅ Internal auto-bid response message created for user ${autoBidOwnerId} for product ${product._id}`);
 
             // Check if recipient has Telegram notifications enabled
             const recipient = await User.findById(autoBidOwnerId);
