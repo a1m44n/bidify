@@ -23,7 +23,15 @@ const messageSchema = mongoose.Schema({
     messageType: {
         type: String,
         required: true,
-        enum: ['AUCTION_END', 'AUCTION_WIN', 'AUCTION_OUTBID', 'SYSTEM']  // Add more types as needed
+        enum: [
+            'AUCTION_END', 
+            'AUCTION_WIN', 
+            'AUCTION_OUTBID', 
+            'AUCTION_AUTO_OUTBID',  // When auto-bid system outbids someone
+            'AUTO_BID_MAX_EXCEEDED', // When someone exceeds auto-bid maximum
+            'AUTO_BID_RESPONSE',     // When auto-bid owner is notified their system responded
+            'SYSTEM'
+        ]
     },
     message: {
         type: String,
