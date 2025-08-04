@@ -69,14 +69,24 @@ class AuctionMonitorService {
         }
 
         // Create messages and send notifications before updating the product
-        await notificationService.sendAuctionEndNotification(product, product.user);
-        
         if (highestBid) {
+            // Send auction end notification with winner info to seller
+            await notificationService.sendAuctionEndNotification(
+                product, 
+                product.user, 
+                highestBid.user, 
+                highestBid.price
+            );
+            
+            // Send win notification to winner
             await notificationService.sendAuctionWinNotification(
                 product,
                 highestBid.user._id,
                 highestBid.price
             );
+        } else {
+            // Send auction end notification without winner info to seller
+            await notificationService.sendAuctionEndNotification(product, product.user);
         }
 
         // Update the product

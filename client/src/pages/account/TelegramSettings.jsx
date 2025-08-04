@@ -132,7 +132,7 @@ const TelegramSettings = () => {
                         <div className="mb-6">
                             <h2 className="text-xl font-semibold mb-4">How to Set Up Telegram Notifications</h2>
                             <ol className="list-decimal pl-5 space-y-3 text-gray-700">
-                                <li>Open Telegram and search for <code className="bg-gray-100 px-2 py-1 rounded">@{import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'Bidify_Bot'}</code></li>
+                                <li>Open Telegram and search for <code className="bg-gray-100 px-2 py-1 rounded">{import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'Bidify_Bot'}</code></li>
                                 <li>Start a chat with the bot by clicking the Start button</li>
                                 <li>Send the command <code className="bg-gray-100 px-2 py-1 rounded">/start</code> to the bot</li>
                                 <li>The bot will reply with your chat ID</li>

@@ -140,9 +140,19 @@ class NotificationService {
      * 
      * @param {object} product - Product details
      * @param {string} recipientId - User ID to notify
+     * @param {object} winner - Winner details (optional)
+     * @param {number} finalPrice - Final selling price (optional)
      */
-    async sendAuctionEndNotification(product, recipientId) {
+    async sendAuctionEndNotification(product, recipientId, winner = null, finalPrice = null) {
         try {
+            // Create appropriate message based on whether there was a winner
+            let internalMessage;
+            if (winner && finalPrice) {
+                internalMessage = `The auction for "${product.title}" has ended. Winner: ${winner.username} with a bid of $${finalPrice}.`;
+            } else {
+                internalMessage = `The auction for "${product.title}" has ended with no bids.`;
+            }
+
             // Create message for internal notifications
             const message = await Message.create({
                 productId: product._id,
@@ -150,7 +160,7 @@ class NotificationService {
                 sender: product.user, // Seller is the sender
                 recipient: recipientId,
                 messageType: 'AUCTION_END',
-                message: `The auction for "${product.title}" has ended.`
+                message: internalMessage
             });
 
             // Check if recipient has Telegram notifications enabled
@@ -162,8 +172,8 @@ class NotificationService {
                 recipient.notificationPreferences?.telegram?.notifyOnAuctionEnd) {
                 
                 try {
-                    // Send Telegram notification
-                    const telegramMessage = telegramBot.createAuctionEndMessage(product);
+                    // Send Telegram notification with winner information
+                    const telegramMessage = telegramBot.createAuctionEndMessage(product, winner, finalPrice);
                     const result = await telegramBot.sendMessage(recipient.telegramChatId, telegramMessage);
                     
                     if (!result.success) {

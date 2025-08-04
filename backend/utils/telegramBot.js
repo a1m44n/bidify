@@ -109,11 +109,25 @@ class TelegramBot {
      * Creates a message for auction end notification
      * 
      * @param {object} productDetails - Product details
+     * @param {object} winner - Winner details (optional)
+     * @param {number} finalPrice - Final selling price (optional)
      * @returns {string} - Formatted message
      */
-    createAuctionEndMessage(productDetails) {
-        return `🔔 <b>Auction Ended</b>\n\n` +
-            `The auction for "${productDetails.title}" has ended.`;
+    createAuctionEndMessage(productDetails, winner = null, finalPrice = null) {
+        let message = `🔔 <b>Auction Ended</b>\n\n`;
+        
+        if (winner && finalPrice) {
+            // Auction had bids - show winner and final price
+            message += `The auction for "${productDetails.title}" has ended.\n\n` +
+                      `🏆 <b>Winner:</b> @${winner.username}\n` +
+                      `💰 <b>Final Price:</b> $${finalPrice}`;
+        } else {
+            // No bids received
+            message += `The auction for "${productDetails.title}" has ended.\n\n` +
+                      `❌ <b>No bids received</b> - Your item did not sell.`;
+        }
+        
+        return message;
     }
 }
 

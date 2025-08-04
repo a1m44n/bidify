@@ -193,10 +193,12 @@ const createAuctionEndMessages = async (product, highestBid) => {
             highestBid.price
         );
 
-        // Create message for the seller (without congratulations text)
+        // Create message for the seller with winner info
         await notificationService.sendAuctionEndNotification(
             product,
-            product.user
+            product.user,
+            highestBid.user,
+            highestBid.price
         );
     } else {
         // Create message for the seller about no bids
