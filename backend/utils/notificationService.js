@@ -226,20 +226,7 @@ class NotificationService {
         try {
             console.log(`🔄 Attempting to send auto-bid response notification to user ${autoBidOwnerId} for product "${product.title}"`);
             
-            // Check for existing auto-bid response notification to prevent duplicates
-            const existingNotification = await Message.findOne({
-                productId: product._id,
-                recipient: autoBidOwnerId,
-                messageType: 'AUTO_BID_RESPONSE',
-                sender: autoBidOwnerId
-            });
-
-            if (existingNotification) {
-                console.log(`⚠️ Auto-bid response notification already exists for user ${autoBidOwnerId} and product ${product._id}. Skipping duplicate.`);
-                return existingNotification;
-            }
-
-            console.log(`✅ No existing auto-bid response notification found. Proceeding to send notification.`);
+            console.log(`✅ Proceeding to send auto-bid response notification (deduplication removed).`);
 
             // Create message for internal notifications
             const message = await Message.create({
