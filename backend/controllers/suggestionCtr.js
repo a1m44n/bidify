@@ -109,6 +109,10 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       console.log(`   Recommended bid: $${cachedSuggestion.recommendedBid}`);
       console.log(`   Cache age: ${Math.round((Date.now() - new Date(cachedSuggestion.generatedAt)) / 1000 / 60)} minutes`);
       console.log(`   Original processing time: ${cachedSuggestion.processingTime}ms`);
+      console.log(`   Adding 3-second delay to simulate processing...`);
+      
+      // Add 3-second delay to make cached responses feel more authentic
+      await new Promise(resolve => setTimeout(resolve, 3000));
       
       return res.status(200).json({
         success: true,

@@ -9,9 +9,9 @@ const crypto = require('crypto');
 // Default TTL values in hours
 const DEFAULT_TTL = {
   price_suggestion: 24,    // 24 hours for final price suggestions
-  ebay_scrape: 6,         // 6 hours for eBay data
-  ai_analysis: 12,        // 12 hours for AI analysis results
-  processed_items: 8      // 8 hours for processed item data
+  ebay_scrape: 24,         // 24 hours for eBay data
+  ai_analysis: 24,         // 24 hours for AI analysis results
+  processed_items: 24      // 24 hours for processed item data
 };
 
 /**
