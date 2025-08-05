@@ -31,7 +31,7 @@ async function checkRelevanceWithAIStage3(stage2Result) {
         success: false,
         stage: 3,
         isGeneric: true,
-        reason: "Product title is too generic. Please add more details like brand, model, or specifications for accurate pricing.",
+        reason: "Product title is too generic. Cannot get price suggestions.",
         step: "title_analysis",
         searchTerm: stage2Result.searchTerm,
         condition: stage2Result.condition
