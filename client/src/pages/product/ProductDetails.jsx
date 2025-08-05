@@ -728,6 +728,11 @@ export const ProductDetails = () => {
                                             </div>
                                         ))}
                                     </div>
+                                    <div className="mt-3 p-2 bg-orange-50 border border-orange-200 rounded text-sm">
+                                        <p className="text-orange-800">
+                                            ⚠️ <strong>Important:</strong> Please verify prices on the actual listing pages, as automated scraping from search results may vary from the linked listing.
+                                        </p>
+                                    </div>
                                     <p className="text-xs text-yellow-600 mt-2">
                                         {aiError.showFullList || aiError.showFilteredList
                                             ? "Click on any item to view the original listing" 
@@ -914,6 +919,11 @@ export const ProductDetails = () => {
                                 <span className="font-medium">${item.price.toFixed(2)}</span>
                             </div>
                         ))}
+                    </div>
+                    <div className="mt-3 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm">
+                        <p className="text-yellow-800">
+                            ⚠️ <strong>Important:</strong> Please verify prices on the actual listing pages, as automated scraping from search results may vary from the linked listing.
+                        </p>
                     </div>
                     <p className="text-xs text-gray-500 mt-2">Click on any item to view the original listing</p>
                 </div>
