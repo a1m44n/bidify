@@ -124,6 +124,7 @@ const CreateProduct = () => {
                                 name="description"
                                 value={formData.description}
                                 onChange={handleChange}
+                                placeholder="Describe the item...&#10;Delivery method and shipping cost if applicable..."
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-primary focus:border-primary"
                                 rows="4"
                                 required
@@ -199,7 +200,7 @@ const CreateProduct = () => {
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-gray-700 text-sm font-bold mb-2">
-                                    Height (cm)
+                                    Dimensions (cm)
                                 </label>
                                 <input
                                     type="number"

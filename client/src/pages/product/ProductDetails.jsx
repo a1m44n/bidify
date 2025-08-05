@@ -84,7 +84,7 @@ export const ProductDetails = () => {
     const [suggestedPrice, setSuggestedPrice] = useState(null);
     const [loadingSuggestion, setLoadingSuggestion] = useState(false);
     const [showSuggestion, setShowSuggestion] = useState(false);
-    const [useAI, setUseAI] = useState(true); // AI enabled by default
+    const useAI = true; // AI always enabled
     const [aiError, setAiError] = useState(null);
     const [isTimeoutReady, setIsTimeoutReady] = useState(false);
     // Auto-bidding state
@@ -617,7 +617,7 @@ export const ProductDetails = () => {
         if (!showSuggestion) {
             return (
                 <div className="mt-4">
-                    <div className="flex items-center gap-4 mb-3">
+                    <div className="mb-3">
                         <button
                             onClick={() => {
                                 setShowSuggestion(true);
@@ -627,31 +627,10 @@ export const ProductDetails = () => {
                         >
                             <span>💡</span> Get suggested price
                         </button>
-                        
-                        <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-600">Method:</label>
-                            <button
-                                onClick={() => setUseAI(!useAI)}
-                                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                                    useAI ? 'bg-blue-600' : 'bg-gray-300'
-                                }`}
-                            >
-                                <span
-                                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                        useAI ? 'translate-x-6' : 'translate-x-1'
-                                    }`}
-                                />
-                            </button>
-                            <span className={`text-sm font-medium ${useAI ? 'text-blue-600' : 'text-gray-500'}`}>
-                                {useAI ? 'AI-Powered' : 'Basic'}
-                            </span>
-                        </div>
                     </div>
                     
                     <p className="text-xs text-gray-500">
-                        {useAI 
-                            ? '🤖 AI analyzes each item for relevance and filters out skewed results' 
-                            : '📝 Basic text matching (faster but less accurate)'}
+                        🤖 AI analyzes each item for relevance and filters out skewed results
                     </p>
                 </div>
             );
@@ -663,7 +642,7 @@ export const ProductDetails = () => {
                     <div className="flex items-center gap-2">
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                         <span>
-                            {useAI ? '🤖 AI analyzing results...' : '📝 Processing results...'}
+                            🤖 AI analyzing results...
                         </span>
                     </div>
                 </div>
@@ -779,19 +758,6 @@ export const ProductDetails = () => {
                                 >
                                     Try Again
                                 </button>
-                                {useAI && (
-                                    <button
-                                        onClick={() => {
-                                            setUseAI(false);
-                                            setAiError(null);
-                                            setIsTimeoutReady(false);
-                                            fetchPriceSuggestion();
-                                        }}
-                                        className="text-blue-600 hover:text-blue-800 text-sm"
-                                    >
-                                        Use Basic Method
-                                    </button>
-                                )}
                                 </div>
                             )}
                         </div>
