@@ -86,6 +86,7 @@ export const ProductDetails = () => {
     const [showSuggestion, setShowSuggestion] = useState(false);
     const [useAI, setUseAI] = useState(true); // AI enabled by default
     const [aiError, setAiError] = useState(null);
+    const [isTimeoutReady, setIsTimeoutReady] = useState(false);
     // Auto-bidding state
     const [autoBidEnabled, setAutoBidEnabled] = useState(false);
     const [showAutoBidForm, setShowAutoBidForm] = useState(false);
@@ -497,6 +498,59 @@ export const ProductDetails = () => {
         };
     }, []);
 
+    // Function to retry price suggestion after timeout
+    const retryPriceSuggestion = async () => {
+        if (!product) return;
+        
+        setIsTimeoutReady(false);
+        setAiError(null);
+        setLoadingSuggestion(true);
+        
+        try {
+            const response = await axios.get(`${API_URL}/api/suggestion/price`, {
+                params: {
+                    productTitle: product.title,
+                    category: product.category,
+                    condition: product.condition.toLowerCase(),
+                    useAI: useAI.toString()
+                },
+                timeout: 10000 // Short timeout for retry - should get cached results
+            });
+            
+            if (response.data.success) {
+                setSuggestedPrice(response.data.suggestion);
+            } else {
+                // Handle the same error cases as the main function
+                if (response.data.isGeneric) {
+                    setAiError({
+                        type: 'generic',
+                        message: response.data.message,
+                        step: response.data.step,
+                        similarItems: response.data.similarItems || [],
+                        diversityInfo: response.data.diversityInfo,
+                        showFullList: response.data.showFullList || false,
+                        showFilteredList: response.data.showFilteredList || false
+                    });
+                } else {
+                    setAiError({
+                        type: 'no_results',
+                        message: response.data.message
+                    });
+                }
+                setSuggestedPrice(null);
+            }
+        } catch (err) {
+            console.error("Error retrying price suggestion:", err);
+            setAiError({
+                type: 'error',
+                message: 'Failed to get price suggestions. Please try again.'
+            });
+            setSuggestedPrice(null);
+        } finally {
+            setLoadingSuggestion(false);
+        }
+    };
+
     // Function to fetch price suggestion
     const fetchPriceSuggestion = async () => {
         if (!product) return;
@@ -538,10 +592,20 @@ export const ProductDetails = () => {
             }
         } catch (err) {
             console.error("Error fetching price suggestion:", err);
-            setAiError({
-                type: 'error',
-                message: 'Failed to get price suggestions. Please try again.'
-            });
+            
+            // Check if this is a timeout error
+            if (err.code === 'ECONNABORTED' && err.message.includes('timeout')) {
+                setIsTimeoutReady(true);
+                setAiError({
+                    type: 'timeout',
+                    message: 'Price recommendation is ready! Click below to view results.'
+                });
+            } else {
+                setAiError({
+                    type: 'error',
+                    message: 'Failed to get price suggestions. Please try again.'
+                });
+            }
             setSuggestedPrice(null);
         } finally {
             setLoadingSuggestion(false);
@@ -609,15 +673,18 @@ export const ProductDetails = () => {
         // Handle AI errors and generic item detection
         if (aiError) {
             return (
-                <div className="mt-4 p-4 bg-yellow-50 rounded-md border border-yellow-200">
+                <div className={`mt-4 p-4 rounded-md border ${aiError.type === 'timeout' ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}`}>
                     <div className="flex items-start gap-3">
-                        <span className="text-yellow-600 text-lg">⚠️</span>
+                        <span className={`text-lg ${aiError.type === 'timeout' ? 'text-green-600' : 'text-yellow-600'}`}>
+                            {aiError.type === 'timeout' ? '🎉' : '⚠️'}
+                        </span>
                         <div className="flex-1">
-                            <h4 className="font-semibold text-yellow-800 mb-2">
+                            <h4 className={`font-semibold mb-2 ${aiError.type === 'timeout' ? 'text-green-800' : 'text-yellow-800'}`}>
                                 {aiError.type === 'generic' ? 'Search Results Too Varied' : 
-                                 aiError.type === 'no_results' ? 'No Similar Items Found' : 'Error'}
+                                 aiError.type === 'no_results' ? 'No Similar Items Found' : 
+                                 aiError.type === 'timeout' ? 'Price Analysis Complete!' : 'Error'}
                             </h4>
-                            <p className="text-yellow-700 mb-3">
+                            <p className={`mb-3 ${aiError.type === 'timeout' ? 'text-green-700' : 'text-yellow-700'}`}>
                                 {aiError.type === 'generic' 
                                     ? 'The search results are too varied to provide an accurate price suggestion. However, you can still view the similar items found online.'
                                     : aiError.message}
@@ -681,10 +748,26 @@ export const ProductDetails = () => {
                                 </div>
                             )}
                             
-                            <div className="flex gap-2 mt-3">
+                            {/* Show Get Results button for timeout cases */}
+                            {aiError.type === 'timeout' && isTimeoutReady && (
+                                <div className="mt-4">
+                                    <button
+                                        onClick={retryPriceSuggestion}
+                                        disabled={loadingSuggestion}
+                                        className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                                    >
+                                        {loadingSuggestion ? 'Getting Results...' : 'Get Results'}
+                                    </button>
+                                </div>
+                            )}
+                            
+                            {/* Regular error handling buttons (hidden for timeout cases) */}
+                            {aiError.type !== 'timeout' && (
+                                <div className="flex gap-2 mt-3">
                                 <button
                                     onClick={() => {
                                         setAiError(null);
+                                        setIsTimeoutReady(false);
                                         setShowSuggestion(false);
                                     }}
                                     className="text-yellow-600 hover:text-yellow-800 text-sm"
@@ -696,6 +779,7 @@ export const ProductDetails = () => {
                                         onClick={() => {
                                             setUseAI(false);
                                             setAiError(null);
+                                            setIsTimeoutReady(false);
                                             fetchPriceSuggestion();
                                         }}
                                         className="text-blue-600 hover:text-blue-800 text-sm"
@@ -703,7 +787,8 @@ export const ProductDetails = () => {
                                         Use Basic Method
                                     </button>
                                 )}
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
