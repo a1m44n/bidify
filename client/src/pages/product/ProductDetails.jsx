@@ -510,7 +510,8 @@ export const ProductDetails = () => {
                     category: product.category,
                     condition: product.condition.toLowerCase(),
                     useAI: useAI.toString() // Pass AI toggle state
-                }
+                },
+                timeout: 180000 // 3 minutes timeout for price suggestions
             });
             
             if (response.data.success) {
