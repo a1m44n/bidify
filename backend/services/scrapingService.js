@@ -510,7 +510,7 @@ function calculateEnhancedPriceRecommendation(prices, itemCount) {
   let varianceNote = "";
   
   if (variance > 5) {
-    varianceNote = " Note: High price variance detected - consider being more specific with your search.";
+    varianceNote = " Note: High price variance detected - consider going through the items yourself to estimate the item's value.";
     confidence = confidence === "high" ? "medium-high" : confidence;
   } else if (variance < 1.5) {
     varianceNote = " Note: Very consistent pricing found - high confidence in recommendation.";
