@@ -121,9 +121,9 @@ class TelegramBot {
      * @returns {string} - Formatted message
      */
     createAutoBidOutbidMessage(productDetails, price, bidderUsername) {
-        return `🤖 <b>Auto-Bid System Responded!</b>\n\n` +
-            `Your auto-bid system automatically outbid someone on "${productDetails.title}".\n` +
-            `New highest bid: $${price} by your auto-bidder @${bidderUsername}`;
+        return `🤖 <b>You Have Been Outbid by Auto-Bid!</b>\n\n` +
+            `You have been outbid on "${productDetails.title}" by an auto-bidding system.\n` +
+            `New highest bid: $${price} by @${bidderUsername}`;
     }
 
     /**
