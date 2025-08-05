@@ -1,7 +1,9 @@
 const axios = require('axios');
 const OpenAI = require('openai');
+const crypto = require('crypto');
 const scrapingService = require('./scrapingService');
 const aiFilteringService = require('./aiFilteringService');
+const cacheService = require('./cacheService');
 
 // Configure OpenAI with new syntax
 const openai = new OpenAI({
@@ -31,7 +33,22 @@ async function generatePriceSuggestionFiveStage(productTitle, category, conditio
   try {
     // STAGE 1: INITIAL SCRAPE
     console.log(`\n📍 STAGE 1/5: INITIAL SCRAPE`);
-    const stage1Result = await scrapingService.scrapeEbayStage1(productTitle, condition);
+    
+    // Check cache for eBay scrape data
+    let stage1Result = await cacheService.cache.ebayScrape.get(productTitle, condition);
+    
+    if (stage1Result) {
+      console.log(`   ⚡ Cache HIT: Using cached eBay data (${stage1Result.items.length} items)`);
+    } else {
+      console.log(`   ❌ Cache MISS: Scraping eBay fresh`);
+      stage1Result = await scrapingService.scrapeEbayStage1(productTitle, condition);
+      
+      // Cache successful scrape results
+      if (stage1Result.success && stage1Result.items.length > 0) {
+        console.log(`   💾 Caching eBay scrape results...`);
+        await cacheService.cache.ebayScrape.set(productTitle, condition, stage1Result);
+      }
+    }
     
     if (!stage1Result.success || stage1Result.items.length === 0) {
       return {
@@ -62,13 +79,36 @@ async function generatePriceSuggestionFiveStage(productTitle, category, conditio
     let stage3Result;
     
     if (useAI) {
-      try {
-        stage3Result = await aiFilteringService.checkRelevanceWithAIStage3(stage2Result);
-      } catch (aiError) {
-        console.error('   ❌ AI failed, falling back to traditional method:', aiError);
-        stage3Result = aiFilteringService.checkRelevanceTraditional(stage2Result.searchTerm, stage2Result.items);
+      // Generate hash of items for cache key
+      const itemsHash = crypto.createHash('md5')
+        .update(JSON.stringify(stage2Result.items.map(item => ({ title: item.title, price: item.price }))))
+        .digest('hex')
+        .substring(0, 8);
+      
+      // Check cache for AI analysis
+      stage3Result = await cacheService.cache.aiAnalysis.get(stage2Result.searchTerm, stage2Result.condition, itemsHash);
+      
+      if (stage3Result) {
+        console.log(`   ⚡ Cache HIT: Using cached AI analysis`);
+        // Ensure required fields are present
         stage3Result.searchTerm = stage2Result.searchTerm;
         stage3Result.condition = stage2Result.condition;
+      } else {
+        console.log(`   ❌ Cache MISS: Running AI analysis fresh`);
+        try {
+          stage3Result = await aiFilteringService.checkRelevanceWithAIStage3(stage2Result);
+          
+          // Cache successful AI results
+          if (stage3Result.success) {
+            console.log(`   💾 Caching AI analysis results...`);
+            await cacheService.cache.aiAnalysis.set(stage2Result.searchTerm, stage2Result.condition, itemsHash, stage3Result);
+          }
+        } catch (aiError) {
+          console.error('   ❌ AI failed, falling back to traditional method:', aiError);
+          stage3Result = aiFilteringService.checkRelevanceTraditional(stage2Result.searchTerm, stage2Result.items);
+          stage3Result.searchTerm = stage2Result.searchTerm;
+          stage3Result.condition = stage2Result.condition;
+        }
       }
     } else {
       stage3Result = aiFilteringService.checkRelevanceTraditional(stage2Result.searchTerm, stage2Result.items);
@@ -180,6 +220,9 @@ async function generatePriceSuggestionFiveStage(productTitle, category, conditio
         stage3: stage3Result,
         stage4: stage4Result,
         stage5: stage5Result
+      }, {
+        ebayDataFromCache: !!stage1Result.fromCache,
+        aiAnalysisFromCache: useAI && !!stage3Result.fromCache
       })
     };
     
@@ -216,7 +259,7 @@ function formatItemForResponse(item) {
 /**
  * Format enhanced suggestion response with all new fields
  */
-function formatEnhancedSuggestionResponse(stage5Result, processingTime, stageResults) {
+function formatEnhancedSuggestionResponse(stage5Result, processingTime, stageResults, cacheInfo = {}) {
   const response = {
     // Core recommendation
     recommendedBid: stage5Result.calculation.recommendedBid,
@@ -239,6 +282,13 @@ function formatEnhancedSuggestionResponse(stage5Result, processingTime, stageRes
     // Processing metadata
     generatedAt: new Date().toISOString(),
     processingTime,
+    
+    // Cache information
+    cacheInfo: {
+      ebayDataFromCache: cacheInfo.ebayDataFromCache || false,
+      aiAnalysisFromCache: cacheInfo.aiAnalysisFromCache || false,
+      cacheEnabled: true
+    },
     
     // Enhanced 5-stage analysis
     fiveStageAnalysis: {

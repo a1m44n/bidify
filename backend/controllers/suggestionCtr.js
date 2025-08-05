@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const scrapingService = require('../services/scrapingService');
 const suggestionService = require('../services/suggestionService');
+const cacheService = require('../services/cacheService');
 
 /**
  * Debug endpoint to see raw scraped data (Legacy - Stage 1 & 2 only)
@@ -94,6 +95,30 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
     console.log(`   AI Enabled: ${shouldUseAI}`);
     console.log(`   ═══════════════════════════════════════════════════════`);
     
+    // Check cache first
+    console.log(`🔍 Checking cache for price suggestion...`);
+    const cachedSuggestion = await cacheService.cache.priceSuggestion.get(
+      productTitle, 
+      category, 
+      normalizedCondition, 
+      shouldUseAI
+    );
+    
+    if (cachedSuggestion) {
+      console.log(`\n⚡ CACHE HIT - Returning cached price suggestion`);
+      console.log(`   Recommended bid: $${cachedSuggestion.recommendedBid}`);
+      console.log(`   Cache age: ${Math.round((Date.now() - new Date(cachedSuggestion.generatedAt)) / 1000 / 60)} minutes`);
+      console.log(`   Original processing time: ${cachedSuggestion.processingTime}ms`);
+      
+      return res.status(200).json({
+        success: true,
+        suggestion: cachedSuggestion,
+        fromCache: true
+      });
+    }
+    
+    console.log(`❌ Cache miss - Processing fresh request`);
+    
     // Use the new 5-stage price suggestion system
     const result = await suggestionService.generatePriceSuggestionFiveStage(
       productTitle, 
@@ -109,9 +134,20 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
       console.log(`   Based on: ${result.suggestion.sources} relevant items`);
       console.log(`   Processing time: ${result.suggestion.processingTime}ms`);
       
+      // Cache the successful result
+      console.log(`💾 Caching price suggestion result...`);
+      await cacheService.cache.priceSuggestion.set(
+        productTitle, 
+        category, 
+        normalizedCondition, 
+        shouldUseAI, 
+        result.suggestion
+      );
+      
       return res.status(200).json({
         success: true,
-        suggestion: result.suggestion
+        suggestion: result.suggestion,
+        fromCache: false
       });
     }
     
@@ -227,21 +263,111 @@ const getPriceSuggestion = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Get cache statistics
+ */
+const getCacheStats = asyncHandler(async (req, res) => {
+  try {
+    const stats = await cacheService.getStats();
+    
+    res.status(200).json({
+      success: true,
+      cache: stats
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Clear cache by type
+ */
+const clearCache = asyncHandler(async (req, res) => {
+  const { type } = req.params;
+  
+  const validTypes = ['price_suggestion', 'ebay_scrape', 'ai_analysis', 'processed_items', 'all'];
+  
+  if (!validTypes.includes(type)) {
+    res.status(400);
+    throw new Error(`Invalid cache type. Must be one of: ${validTypes.join(', ')}`);
+  }
+  
+  try {
+    let deletedCount = 0;
+    
+    if (type === 'all') {
+      // Clear all cache types
+      for (const cacheType of validTypes.slice(0, -1)) { // Exclude 'all'
+        deletedCount += await cacheService.clearByType(cacheType);
+      }
+    } else {
+      deletedCount = await cacheService.clearByType(type);
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: `Cache cleared successfully`,
+      type,
+      deletedCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
+ * Manual cache cleanup
+ */
+const cleanupCache = asyncHandler(async (req, res) => {
+  try {
+    const deletedCount = await cacheService.cleanup();
+    
+    res.status(200).json({
+      success: true,
+      message: `Cache cleanup completed`,
+      deletedCount
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+/**
  * Health check endpoint for the suggestion system
  */
 const getSystemHealth = asyncHandler(async (req, res) => {
   try {
+    const cacheStats = await cacheService.getStats();
+    
     const health = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
       services: {
         scraping: 'available',
         aiFiltering: process.env.OPENAI_API_KEY ? 'available' : 'unavailable',
-        database: 'not_checked' // Could add DB ping here
+        database: 'available',
+        cache: cacheStats ? 'available' : 'unavailable'
       },
-      version: '5-stage-system',
+      version: '5-stage-system-with-cache',
+      cache: cacheStats ? {
+        totalEntries: cacheStats.totalEntries,
+        activeEntries: cacheStats.activeEntries,
+        expiredEntries: cacheStats.expiredEntries
+      } : null,
       features: {
         fiveStageProcessing: true,
+        mongodbCaching: true,
         aiRelevanceFiltering: !!process.env.OPENAI_API_KEY,
         semanticMatching: true,
         brandIntelligence: true,
@@ -263,5 +389,8 @@ const getSystemHealth = asyncHandler(async (req, res) => {
 module.exports = {
   getPriceSuggestion,
   getDebugScrapedData,
-  getSystemHealth
+  getSystemHealth,
+  getCacheStats,
+  clearCache,
+  cleanupCache
 }; 

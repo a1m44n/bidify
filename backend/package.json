@@ -32,6 +32,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "dev:webhook": "node scripts/startDevServer.js"
+    "dev:webhook": "node scripts/startDevServer.js",
+    "test:cache": "node scripts/testCache.js"
   }
 }
