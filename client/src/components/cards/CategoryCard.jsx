@@ -4,7 +4,7 @@ import { Title } from "../common/Design";
 // Import icons for each category
 import { 
     FaCouch, FaGamepad, FaRunning, FaHeadphones, 
-    FaCar, FaCogs, FaSprayCan, FaLaptop, FaMobileAlt,
+    FaCar, FaCogs, FaPalette, FaLaptop, FaMobileAlt,
     FaGem, FaTshirt, FaHome, FaBook, FaPaw, FaGuitar,
     FaUtensils, FaBriefcase, FaBoxOpen 
 } from 'react-icons/fa';
@@ -33,7 +33,7 @@ const getCategoryIcon = (title) => {
     
     // Beauty & Care
     if (normalizedTitle.includes('beauty') || normalizedTitle.includes('care') || 
-        normalizedTitle.includes('cosmetic')) return FaSprayCan;
+        normalizedTitle.includes('cosmetic')) return FaPalette;
     
     // Tech & Gadgets
     if (normalizedTitle.includes('computer') || normalizedTitle.includes('laptop') || 

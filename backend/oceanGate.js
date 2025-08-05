@@ -6,12 +6,12 @@ const path = require('path');
 const fs = require('fs');
 
 // Load environment variables
-require('dotenv').config({ path: './backend/.env' });
+require('dotenv').config();
 
 // Import models
-const User = require('./backend/models/UserModels');
-const Product = require('./backend/models/productModels');
-const Category = require('./backend/models/categoryModel');
+const User = require('./models/UserModels');
+const Product = require('./models/productModels');
+const Category = require('./models/categoryModel');
 
 // Create readline interface
 const rl = readline.createInterface({
@@ -163,8 +163,8 @@ async function viewAllItems() {
 // Get available icons
 function getAvailableIcons() {
     const iconPaths = [
-        './client/public/images/category',
-        './backend/public/images/category'
+        '../client/public/images/category',
+        './public/images/category'
     ];
     
     let icons = [];
