@@ -68,7 +68,7 @@ function showMenu() {
 async function viewAllUsers() {
     try {
         console.log(`\n${colors.cyan}📋 Fetching all users...${colors.reset}`);
-        const users = await User.find({}).select('_id username email createdAt');
+        const users = await User.find({}).select('_id username email');
         
         if (users.length === 0) {
             console.log(`${colors.yellow}No users found.${colors.reset}`);
@@ -76,16 +76,15 @@ async function viewAllUsers() {
         }
 
         console.log(`\n${colors.green}Found ${users.length} users:${colors.reset}`);
-        console.log(`${colors.blue}${'ID'.padEnd(25)} | ${'Username'.padEnd(20)} | ${'Email'.padEnd(30)} | ${'Created'}${colors.reset}`);
-        console.log('-'.repeat(90));
+        console.log(`${colors.blue}${'ID'.padEnd(25)} | ${'Username'.padEnd(20)} | ${'Email'.padEnd(30)}${colors.reset}`);
+        console.log('-'.repeat(78));
         
         users.forEach(user => {
             const id = user._id.toString().substring(0, 24);
             const name = (user.username || 'N/A').substring(0, 19);
             const email = (user.email || 'N/A').substring(0, 29);
-            const created = user.createdAt ? user.createdAt.toLocaleDateString() : 'N/A';
             
-            console.log(`${id.padEnd(25)} | ${name.padEnd(20)} | ${email.padEnd(30)} | ${created}`);
+            console.log(`${id.padEnd(25)} | ${name.padEnd(20)} | ${email.padEnd(30)}`);
         });
     } catch (error) {
         console.error(`${colors.red}❌ Error fetching users:${colors.reset}`, error.message);
@@ -121,7 +120,6 @@ async function deleteUser() {
         // Delete user
         await User.findByIdAndDelete(user._id);
         console.log(`${colors.green}✅ User '${username}' has been deleted successfully.${colors.reset}`);
-        console.log(`${colors.yellow}⚠️  Note: Products and bids created by this user remain in the database.${colors.reset}`);
         
     } catch (error) {
         console.error(`${colors.red}❌ Error deleting user:${colors.reset}`, error.message);
@@ -133,8 +131,8 @@ async function viewAllItems() {
     try {
         console.log(`\n${colors.cyan}📦 Fetching all items...${colors.reset}`);
         const products = await Product.find({})
-            .select('title owner price category condition createdAt isActive')
-            .populate('owner', 'username')
+            .select('title user price category condition createdAt auctionEndTime isSoldOut')
+            .populate('user', 'username')
             .sort({ createdAt: -1 });
         
         if (products.length === 0) {
@@ -148,10 +146,14 @@ async function viewAllItems() {
         
         products.forEach(product => {
             const title = (product.title || 'N/A').substring(0, 24);
-            const owner = (product.owner?.username || 'N/A').substring(0, 14);
+            const owner = (product.user?.username || 'N/A').substring(0, 14);
             const price = `$${product.price || 0}`.substring(0, 9);
             const category = (product.category || 'N/A').substring(0, 11);
-            const status = product.isActive ? `${colors.green}Active${colors.reset}` : `${colors.red}Ended${colors.reset}`;
+            
+            // Determine status based on auction end time and if sold
+            const now = new Date();
+            const isActive = !product.isSoldOut && new Date(product.auctionEndTime) > now;
+            const status = isActive ? `${colors.green}Active${colors.reset}` : `${colors.red}Ended${colors.reset}`;
             
             console.log(`${title.padEnd(25)} | ${owner.padEnd(15)} | ${price.padEnd(10)} | ${category.padEnd(12)} | ${status}`);
         });
