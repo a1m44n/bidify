@@ -89,20 +89,7 @@ class NotificationService {
         try {
             console.log(`🤖 Attempting to send auto-bid outbid notification to user ${recipientId} for product "${product.title}"`);
             
-            // Check for existing auto-bid outbid notification to prevent duplicates
-            const existingNotification = await Message.findOne({
-                productId: product._id,
-                recipient: recipientId,
-                messageType: 'AUCTION_AUTO_OUTBID',
-                sender: autoBidUserId
-            });
-
-            if (existingNotification) {
-                console.log(`⚠️ Auto-bid outbid notification already exists for user ${recipientId} and product ${product._id}. Skipping duplicate.`);
-                return existingNotification;
-            }
-
-            console.log(`✅ No existing auto-bid outbid notification found. Proceeding to send notification.`);
+            console.log(`✅ Proceeding to send auto-bid outbid notification.`);
 
             // Create message for internal notifications
             const message = await Message.create({
