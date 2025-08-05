@@ -14,7 +14,8 @@
     "build-frontend": "cd client && npm run build"
   },
   "dependencies": {
-    "dotenv": "^16.5.0",
-    "mongoose": "^8.14.1"
+    "dotenv": "^16.6.1",
+    "mongoose": "^8.17.0",
+    "readline": "^1.3.0"
   }
 }
