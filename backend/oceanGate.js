@@ -54,7 +54,7 @@ async function connectDB() {
 
 // Display main menu
 function showMenu() {
-    console.log(`\n${colors.cyan}${colors.bright}🌊 OceanGate Admin Panel 🌊${colors.reset}`);
+    console.log(`\n${colors.cyan}${colors.bright}🏛️ Bidify Administrative Panel 🏛️${colors.reset}`);
     console.log(`${colors.blue}================================${colors.reset}`);
     console.log(`${colors.yellow}1.${colors.reset} View all users`);
     console.log(`${colors.yellow}2.${colors.reset} Delete user`);
@@ -68,7 +68,7 @@ function showMenu() {
 async function viewAllUsers() {
     try {
         console.log(`\n${colors.cyan}📋 Fetching all users...${colors.reset}`);
-        const users = await User.find({}).select('_id name email createdAt');
+        const users = await User.find({}).select('_id username email createdAt');
         
         if (users.length === 0) {
             console.log(`${colors.yellow}No users found.${colors.reset}`);
@@ -81,7 +81,7 @@ async function viewAllUsers() {
         
         users.forEach(user => {
             const id = user._id.toString().substring(0, 24);
-            const name = (user.name || 'N/A').substring(0, 19);
+            const name = (user.username || 'N/A').substring(0, 19);
             const email = (user.email || 'N/A').substring(0, 29);
             const created = user.createdAt ? user.createdAt.toLocaleDateString() : 'N/A';
             
@@ -103,7 +103,7 @@ async function deleteUser() {
         }
 
         // Find user
-        const user = await User.findOne({ name: username.trim() });
+        const user = await User.findOne({ username: username.trim() });
         
         if (!user) {
             console.log(`${colors.red}❌ User '${username}' not found.${colors.reset}`);
@@ -111,7 +111,7 @@ async function deleteUser() {
         }
 
         // Confirm deletion
-        const confirm = await prompt(`${colors.red}⚠️  Are you sure you want to delete user '${user.name}' (${user.email})? This action cannot be undone. (yes/no): ${colors.reset}`);
+        const confirm = await prompt(`${colors.red}⚠️  Are you sure you want to delete user '${user.username}' (${user.email})? This action cannot be undone. (yes/no): ${colors.reset}`);
         
         if (confirm.toLowerCase() !== 'yes') {
             console.log(`${colors.yellow}Deletion cancelled.${colors.reset}`);
@@ -134,7 +134,7 @@ async function viewAllItems() {
         console.log(`\n${colors.cyan}📦 Fetching all items...${colors.reset}`);
         const products = await Product.find({})
             .select('title owner price category condition createdAt isActive')
-            .populate('owner', 'name')
+            .populate('owner', 'username')
             .sort({ createdAt: -1 });
         
         if (products.length === 0) {
@@ -148,7 +148,7 @@ async function viewAllItems() {
         
         products.forEach(product => {
             const title = (product.title || 'N/A').substring(0, 24);
-            const owner = (product.owner?.name || 'N/A').substring(0, 14);
+            const owner = (product.owner?.username || 'N/A').substring(0, 14);
             const price = `$${product.price || 0}`.substring(0, 9);
             const category = (product.category || 'N/A').substring(0, 11);
             const status = product.isActive ? `${colors.green}Active${colors.reset}` : `${colors.red}Ended${colors.reset}`;
@@ -241,7 +241,7 @@ async function createCategory() {
 async function main() {
     await connectDB();
     
-    console.log(`${colors.green}🚀 OceanGate Admin Panel Started${colors.reset}`);
+    console.log(`${colors.green}🚀 Bidify Administrative Panel Started${colors.reset}`);
     
     while (true) {
         showMenu();
